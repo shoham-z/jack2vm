@@ -1,236 +1,78 @@
+use std::borrow::Borrow;
 use std::fs;
-use std::str::Chars;
-use lazy_static::lazy_static;
 use regex::Regex;
-use throw::throw;
-use crate::xmlwriter::Xmlwriter;
-
-lazy_static! { // This was the only possible way to have global regex, without recompiling every time
-    pub static ref COMMENT_REGEX: Regex = Regex::new(r"/\*\*.*\*/\n|//.*\n|/\*.*\*/\n").unwrap();
-    pub static ref KEYWORD_REGEX: Regex = Regex::new(r"class\b|\bconstructor\b|\bfunction\b|\bmethod\b|\bfield\b|\bstatic\b|\bvar\b|\bint\b|\bchar\b|\bboolean\b|\bvoid\b|\btrue\b|\bfalse\b|\bnull\b|\bthis\b|\blet\b|\bdo\b|\bif\b|\belse\b|\bwhile\b|\breturn\b").unwrap();
-    pub static ref SYMBOL_REGEX: Regex = Regex::new(r"\{|}|\(|\)|\b\[\b|\b]\b|\b\.\b|,|\b;|\+|-|\*|/|&|\b\|\b|<|>|=|\b~\b").unwrap();
-    pub static ref IDENTIFIER_REGEX: Regex = Regex::new(r"\D\w*").unwrap();
-    pub static ref INT_CONST_REGEX: Regex = Regex::new(r"(?m)\b\d{1,5}\b").unwrap(); // any 5 digit number
-    pub static ref STRING_CONST_REGEX: Regex = Regex::new(r#"\"[^\"\n]*\""#).unwrap(); // any string literal (starts and ends with ")
-}
-//constant for type
-pub const KEYWORD: i32 = 1;
-
-pub const SYMBOL: i32 = 2;
-
-pub const IDENTIFIER: i32 = 3;
-
-pub const INT_CONST: i32 = 4;
-
-pub const STRING_CONST: i32 = 5;
-
-//constant for keyword
-const CLASS: i32 = 10;
-
-const METHOD: i32 = 11;
-
-const FUNCTION: i32 = 12;
-
-const CONSTRUCTOR: i32 = 13;
-
-const INT: i32 = 14;
-
-const BOOLEAN: i32 = 15;
-
-const CHAR: i32 = 16;
-
-const VOID: i32 = 17;
-
-const VAR: i32 = 18;
-
-const STATIC: i32 = 19;
-
-const FIELD: i32 = 20;
-
-const LET: i32 = 21;
-
-const DO: i32 = 22;
-
-const IF: i32 = 23;
-
-const ELSE: i32 = 24;
-
-const WHILE: i32 = 25;
-
-const RETURN: i32 = 26;
-
-const TRUE: i32 = 27;
-
-const FALSE: i32 = 28;
-
-const NULL: i32 = 29;
-
-const THIS: i32 = 30;
+use crate::XmlWriter;
 
 
-pub struct JackTokenizer {
-    xml_writer: Xmlwriter,
-    pub current_token: String,
-    pub current_token_type: i32,
-    pub current_content: String,
-    jack_code: Vec<char>,
-    ptr: usize,
-}
+pub fn tokenizer(xml_file_path: String) {
+    let mut xml_writer = XmlWriter::new(&xml_file_path);
 
-impl JackTokenizer {
-    /// Opens a jack file and gets ready to tokenize it
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - A path to the jack file, including the file extension
-    ///
-    /// # Returns
-    ///
-    /// * The newly created JackTokenizer object
-    pub fn new(path: &String) -> Self {
-        let s = fs::read_to_string(path).unwrap();
-        let mut tokenizer = JackTokenizer {
-            xml_writer: Xmlwriter::new(path),
-            current_token: "".to_string(),
-            current_token_type: -1,
-            current_content: String::new(),
-            jack_code: COMMENT_REGEX.replace_all(s.as_str(), "").parse::<String>().unwrap().chars().collect(),
-            ptr: s.len(),
-        };
-        tokenizer
-    }
-
-    /// Are there any more tokens in the input?
-    ///
-    /// # Returns
-    ///
-    /// * True if there are more tokens in the input, false otherwise
-    pub fn has_more_tokens(&self) -> bool {
-        self.ptr < self.jack_code.to_owned().len()
-    }
-
-    /// Gets the next token from the input, and makes it the current token.
-    /// This method should only be called only if has_more_tokens is true.
-    /// Initially there is no current token
-    pub fn advance(&mut self) {
-        if self.has_more_tokens() {
-            self.current_content += self.jack_code[self.ptr].to_string().as_str();
-            self.ptr += 1;
-        } else {}
-        if KEYWORD_REGEX.is_match(self.current_content.as_str()) {
-            self.current_token_type = KEYWORD;
-            self.current_token = "keyword".to_string();
-        } else if SYMBOL_REGEX.is_match(self.current_content.as_str()) {
-            self.current_token_type = SYMBOL;
-            self.current_token = "symbol".to_string();
-        } else if INT_CONST_REGEX.is_match(self.current_content.as_str()) {
-            self.current_token_type = INT_CONST;
-            self.current_token = "integerConstant".to_string();
-        } else if STRING_CONST_REGEX.is_match(self.current_content.as_str()) {
-            self.current_token_type = STRING_CONST;
-            self.current_token = "stringConstant".to_string();
-        } else if IDENTIFIER_REGEX.is_match(self.current_content.as_str()) {
-            self.current_token_type = IDENTIFIER;
-            self.current_token = "identifier".to_string();
-        } else {
-            println!("{}", (format!("Unknown token:{}", self.current_content)));
+    //this way we kick out all the comments:
+    let regex_no_comments = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
+    //reading the data and *it has to be owned other ways regex will not be able to use it*:
+    let file_raw_data = fs::read_to_string(xml_file_path.to_string()).unwrap().as_str().to_owned();
+    //none readable data that's way next line i transferred it to chars:
+    let mut after_no_comments = regex_no_comments.replace_all(&file_raw_data, "");
+    //a vectors for all the chars:
+    let mut chars_vec = vec![];
+    for text in after_no_comments.chars() {
+        if text != '\n' || text != ' ' {
+            chars_vec.push(text);
         }
-        println!("{}", self.current_content);
     }
-
-    /// Returns the type of the current token as a constant
-    ///
-    /// # Returns
-    ///
-    /// The token as constant (KEYWORD/SYMBOL/IDENTIFIER/INT_CONST/STRING_CONST)
-    pub fn token_type(&mut self) -> i32 {
-        return self.current_token_type;
-    }
-
-    /// Returns the KEYWORD which is the current token, as a constant.
-    /// This method should only be called if tokenType is KEYWORD
-    ///
-    /// # Returns
-    ///
-    /// The current token
-    pub fn keyword(&self) -> String {
-        let mut value: &str = "";
-
-        if value == "<" {
-            value = "&lt;"
-        } else if value == ">" {
-            value = "&gt;"
-        } else if value == "\"" {
-            value = "&quet;"
-        } else if value == "&" {
-            value = "&amp;"
-        }else{
-            value = self.current_content.as_str();
+    let saved_key_words = vec!["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
+    let saved_symbols = vec![";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
+    let mut word = String::new();
+    for mut index in 0..(chars_vec.len() - 1) {
+        //checks if the index is oversize the array:
+        if index < chars_vec.len() {
+            word.push(chars_vec[index]); //combining all the chars until we get a valid word\symbol\identifier
+            if !(word.contains("\t") || word.contains("\n") || word.contains(" ")) {
+                //checks if the word is a Key word
+                if saved_key_words.contains(&&*word) {
+                    xml_writer.write("keyword".to_string(), word.to_string());
+                    word.clear();
+                }
+                //checks if the word is a string:
+                else if chars_vec[index] == '"' { //checking if the word is a string
+                    word.clear();
+                    while chars_vec[index + 1] != '"' {
+                        word.push(chars_vec[index + 1]);
+                        chars_vec.remove(index);
+                    }
+                    xml_writer.write("stringConstant".to_string(), word.to_string());
+                }
+                //checks if it is a symbol:
+                //******note!!! -> the check for symbols must come before the check for identifier*****
+                else if saved_symbols.contains(&&*word) { //checking if its a symbol
+                    if word == "<" {
+                        xml_writer.write("symbol".to_string(), "&lt;".to_string());
+                    } else if word == ">" {
+                        xml_writer.write("symbol".to_string(), "&gt;".to_string());
+                    } else if word == "&" {
+                        xml_writer.write("symbol".to_string(), "&amp;".to_string());
+                    } else if word == "\"" {
+                        xml_writer.write("symbol".to_string(), "&quet;".to_string());
+                    } else {
+                        xml_writer.write("symbol".to_string(), word.to_string());
+                    }
+                    word.clear()
+                }
+                // checks if it is identifier:
+                //******note!!! -> the check for symbols must come before the check for identifier*****
+                else if saved_symbols.contains(&&*chars_vec[index + 1].to_string()) || chars_vec[index + 1] == ' ' {
+                    let num = word.parse::<i32>();
+                    if num.is_ok() {
+                        xml_writer.write("integerConstant".to_string(), num.unwrap().to_string());
+                    } else {
+                        xml_writer.write("identifier".to_string(), word.to_string());
+                    }
+                    word.clear();
+                }
+            } else {
+                word.clear();
+            }//if the word is \n or \t or white space it removes it
         }
-        value.to_string()
     }
-
-
-    /// Returns the symbol which is the current token, as a constant.
-    /// This method should only be called if tokenType is SYMBOL
-    ///
-    /// # Returns
-    ///
-    /// The current token
-    pub fn symbol(&self) -> char {
-        return self.current_content.chars().next().unwrap();
-    }
-
-
-    /// Returns the identifier which is the current token, as a constant.
-    /// This method should only be called if tokenType is identifier
-    ///
-    /// # Returns
-    ///
-    /// The current token
-    pub fn identifier(&self) -> String {
-        return self.current_token.to_string();
-    }
-
-
-    /// Returns the integer value of the current token.
-    /// This method should only be called if tokenType is INT_CONST
-    ///
-    /// # Returns
-    ///
-    /// The integer value of the current token
-    pub fn int_val(&self) -> usize {
-        return self.current_content.parse().unwrap();
-    }
-
-
-    /// Returns the string value of the current token, without hte two enclosing double quotes.
-    /// This method should only be called if tokenType is STRING_CONST
-    ///
-    /// # Returns
-    ///
-    /// The string value of the current token
-    pub fn string_val(&self) -> String {
-        return self.current_token[1.. self.current_token.len() - 1].to_string();
-    }
-
-    /// Iterates over all characters in the jack file and tokenize them into xml file
-    pub fn tokenize(&mut self) {
-        while self.has_more_tokens() {
-            self.advance();
-            if self.current_token_type == KEYWORD {
-                self.keyword();
-            } else if self.current_token_type == SYMBOL {
-                self.symbol();
-            } else if self.current_token_type == STRING_CONST {
-                self.string_val();
-            } else if self.current_token_type == INT_CONST {
-                self.int_val();
-            } else if self.current_token_type == IDENTIFIER {
-                self.identifier();
-            } else { panic!("ERROR IN tokenizer.token_type()!"); }
-            self.xml_writer.write(self.current_token.to_string(), self.current_content.to_string());
-        }
-        self.xml_writer.write_last();
-    }
+    xml_writer.write_last();
 }

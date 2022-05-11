@@ -5,11 +5,11 @@ static RIGHT_BRACKET: &str = ">";
 static LEFT_BRACKET: &str = "<";
 static WHITESPACE: &str = " ";
 
-pub struct Xmlwriter{
+pub struct XmlWriter {
     pub xmlfile: File,
 }
 
-impl Xmlwriter {
+impl XmlWriter {
     /// Opens a jack file and gets ready to tokenize it
     ///
     /// # Arguments
@@ -20,7 +20,7 @@ impl Xmlwriter {
     ///
     /// * This self xmlwriter object
     pub fn new(path: &String) -> Self {
-        let mut xmlwriter = Xmlwriter{
+        let mut xmlwriter = XmlWriter {
             xmlfile: File::create(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "MyT.xml").unwrap(),
         };
         xmlwriter.xmlfile.write("<tokens>\n".as_ref());
@@ -41,6 +41,6 @@ impl Xmlwriter {
 
     /// Destructor for xmlwriter in order to write the closing bracket
     pub fn write_last(&mut self) {
-        self.xmlfile.write((LEFT_BRACKET.to_string() + "/" + "token" + RIGHT_BRACKET).as_ref());
+        self.xmlfile.write((LEFT_BRACKET.to_string() + "/" + "tokens" + RIGHT_BRACKET).as_ref());
     }
 }

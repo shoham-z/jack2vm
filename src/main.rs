@@ -3,11 +3,9 @@ mod tokenizer;
 
 // include the latest version of the regex crate in your Cargo.toml
 extern crate regex;
-use lazy_static::lazy_static;
-use regex::Regex;
+#[macro_use]
+extern crate lazy_static;
 use std::{env, fs};
-use std::borrow::Borrow;
-use std::path::Path;
 use tokenizer::tokenizer;
 use xmlwriter::XmlWriter;
 

@@ -8,7 +8,7 @@ pub struct JackTokenizer {
     token_content: String,
     token_type: usize,
     index: usize,
-    xml_writer: XmlWriter,
+    output_file: XmlWriter,
 }
 
 const KEYWORD: usize = 1;
@@ -37,7 +37,7 @@ impl JackTokenizer {
         let file_raw_data = fs::read_to_string(path).unwrap().as_str().to_owned();
         //non readable data that's way next line i transferred it to chars:
         let after_no_comments = regex_no_comments.replace_all(&file_raw_data, "");
-        //a vector for all the chars:
+        //vector for all the chars:
         let mut buffer: Vec<char> = vec![];
         for text in after_no_comments.chars() {
             print!("{}", text);
@@ -50,7 +50,7 @@ impl JackTokenizer {
             token_content: "".to_string(),
             token_type: 0,
             index: 0,
-            xml_writer: XmlWriter::new(path),
+            output_file: XmlWriter::new(path),
         };
         tokenizer
     }
@@ -219,9 +219,9 @@ impl JackTokenizer {
                 tag = "identifier";
                 content = self.identifier();
             } else { panic!("ERROR IN tokenizer.token_type()!"); }
-            self.xml_writer.write(tag.to_string(), content);
+            self.output_file.write(tag.to_string(), content);
         }
-        self.xml_writer.write_last();
+        self.output_file.write_last();
     }
 }
 

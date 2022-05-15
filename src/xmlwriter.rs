@@ -10,11 +10,11 @@ pub struct XmlWriter {
 }
 
 impl XmlWriter {
-    /// Opens a jack file and gets ready to tokenize it
+    /// Creates a new xml file and gets ready to write to it
     ///
     /// # Arguments
     ///
-    /// * `path` - A path to the jack file, excluding the fileextention
+    /// * `path` - A path to the jack file, including the file extension
     ///
     /// # Returns
     ///

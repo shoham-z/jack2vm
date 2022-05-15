@@ -1,9 +1,11 @@
 mod xmlwriter;
 mod tokenizer;
+mod compilation_engine;
 
 // include the latest version of the regex crate in your Cargo.toml
 use std::{env, fs};
 use tokenizer::JackTokenizer;
+use compilation_engine::CompilationEngine;
 
 
 fn main() {
@@ -12,6 +14,7 @@ fn main() {
     for file in xml_file_path {
         let mut tokenizer = JackTokenizer::new(&file);
         tokenizer.tokenize();
+        let compilation_engine = CompilationEngine::new(&file);
     }
 }
 

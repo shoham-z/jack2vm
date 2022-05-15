@@ -4,11 +4,11 @@ use crate::xmlwriter::XmlWriter;
 
 
 pub struct JackTokenizer {
-    buffer:Vec<char>,
-    token_content:String,
-    token_type:usize,
-    index:usize,
-    xml_writer:XmlWriter
+    buffer: Vec<char>,
+    token_content: String,
+    token_type: usize,
+    index: usize,
+    xml_writer: XmlWriter,
 }
 
 const KEYWORD: usize = 1;
@@ -32,13 +32,13 @@ impl JackTokenizer {
     ///
     /// * The newly created JackTokenizer object
     pub fn new(path: &String) -> Self {
-        let regex_no_comments:Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
+        let regex_no_comments: Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
         //reading the data *it had to be owned otherwise regex will not be able to use it*:
-        let file_raw_data =fs::read_to_string(path).unwrap().as_str().to_owned();
+        let file_raw_data = fs::read_to_string(path).unwrap().as_str().to_owned();
         //non readable data that's way next line i transferred it to chars:
         let after_no_comments = regex_no_comments.replace_all(&file_raw_data, "");
         //a vector for all the chars:
-        let mut buffer:Vec<char> =vec![];
+        let mut buffer: Vec<char> = vec![];
         for text in after_no_comments.chars() {
             print!("{}", text);
             if text != '\n' || text != ' ' {
@@ -50,7 +50,7 @@ impl JackTokenizer {
             token_content: "".to_string(),
             token_type: 0,
             index: 0,
-            xml_writer: XmlWriter::new(path)
+            xml_writer: XmlWriter::new(path),
         };
         tokenizer
     }
@@ -68,12 +68,12 @@ impl JackTokenizer {
     /// This method should only be called only if has_more_tokens is true.
     /// Initially there is no current token
     pub fn advance(&mut self) {
-        let saved_key_words:Vec<&str> = vec!["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
-        let saved_symbols:Vec<&str> = vec![";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
+        let saved_key_words: Vec<&str> = vec!["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
+        let saved_symbols: Vec<&str> = vec![";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
         //checking if the index is oversize the array:
-        if self.has_more_tokens(){
-            if self.buffer[self.index] == '/' && self.buffer[self.index+1] == '*'{
-                while !(self.buffer[self.index+1] == '/'){
+        if self.has_more_tokens() {
+            if self.buffer[self.index] == '/' && self.buffer[self.index + 1] == '*' {
+                while !(self.buffer[self.index + 1] == '/') {
                     self.buffer.remove(self.index);
                 }
                 self.buffer.remove(self.index);
@@ -82,11 +82,10 @@ impl JackTokenizer {
             self.token_content.push(self.buffer[self.index]); //combining all the chars until we get a valid word\symbol\identifier
             if !(self.token_content.contains("\t") || self.token_content.contains("\n")) {
                 //checking if the word is a Key word
-                if saved_key_words.contains(&&*self.token_content) && (saved_symbols.contains(&&*self.buffer[self.index+1].to_string())  || (self.buffer[self.index+1] == ' ')) {
+                if saved_key_words.contains(&&*self.token_content) && (saved_symbols.contains(&&*self.buffer[self.index + 1].to_string()) || (self.buffer[self.index + 1] == ' ')) {
                     self.token_type = KEYWORD;
                     self.token_content.clear();
-                }
-                else if self.token_content == " " {
+                } else if self.token_content == " " {
                     self.token_content.clear()
                 }
                 //checking if the word is a string:
@@ -107,17 +106,15 @@ impl JackTokenizer {
                 }
                 // checking if its identifier:
                 //******note!!! -> the check for symbols most come before the check for identifier*****
-                else if saved_symbols.contains(&&*self.buffer[self.index + 1].to_string()) || self.buffer[self.index+1] ==' ' {
+                else if saved_symbols.contains(&&*self.buffer[self.index + 1].to_string()) || self.buffer[self.index + 1] == ' ' {
                     if self.token_content.parse::<i32>().is_ok() {
                         self.token_type = INT_CONST;
-                    }
-                    else {
+                    } else {
                         self.token_type = IDENTIFIER;
                     }
                     self.token_content.clear();
                 }
-            }
-            else {
+            } else {
                 self.token_content.clear();
             }//if the word is \n or \t or white space it removes it
         }
@@ -150,7 +147,7 @@ impl JackTokenizer {
             value = "&quet;"
         } else if value == "&" {
             value = "&amp;"
-        }else{
+        } else {
             value = self.token_content.as_str();
         }
         value.to_string()
@@ -197,7 +194,7 @@ impl JackTokenizer {
     ///
     /// The string value of the current token
     pub fn string_val(&self) -> String {
-        return self.token_content[1.. self.token_content.len() - 1].to_string();
+        return self.token_content[1..self.token_content.len() - 1].to_string();
     }
 
     /// Iterates over all characters in the jack file and tokenize them into xml file

@@ -6,12 +6,10 @@ use std::{env, fs};
 use tokenizer::JackTokenizer;
 
 
-
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let xml_file_path = search_jack_files(args[1].as_str());
-    for file in xml_file_path{
+    for file in xml_file_path {
         let mut tokenizer = JackTokenizer::new(&file);
         tokenizer.tokenize();
     }

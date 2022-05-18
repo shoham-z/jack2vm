@@ -1,20 +1,19 @@
 mod xmlwriter;
 mod tokenizer;
-mod compilation_engine;
 
 // include the latest version of the regex crate in your Cargo.toml
+extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 use std::{env, fs};
-use tokenizer::JackTokenizer;
-use compilation_engine::CompilationEngine;
-
+use tokenizer::tokenizer;
+use xmlwriter::XmlWriter;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let xml_file_path = search_jack_files(args[1].as_str());
-    for file in xml_file_path {
-        let mut tokenizer = JackTokenizer::new(&file);
-        tokenizer.tokenize();
-        let compilation_engine = CompilationEngine::new(&file);
+    for file in xml_file_path{
+        tokenizer(file.to_string())
     }
 }
 

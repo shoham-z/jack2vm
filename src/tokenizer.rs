@@ -1,22 +1,29 @@
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 use std::fs;
-use lazy_static::lazy_static;
 use regex::Regex;
 use crate::xmlwriter::XmlWriter;
 
 
+static SAVED_KEYWORDS: [&str; 21] = ["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
+static SAVED_SYMBOLS: [&str; 19] = [";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
 
+const KEYWORD: &str = "keyword";
 
+const SYMBOL: &str = "symbol";
 
+const IDENTIFIER: &str = "identifier";
+
+const INT_CONST: &str = "integerConstant";
+
+const STRING_CONST: &str = "stringConstant";
+
+//It is was too complicated to transform this function into a class, like the suggested api
 pub fn tokenizer(xml_file_path: String) {
-
 
     //this way we kick out all the comments:
     let regex_no_comments:Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
 
     let mut xml_writer:XmlWriter = XmlWriter::new(&xml_file_path);
-
-    println!("{:?}", xml_writer.xmlfile);
 
     //reading the data and *it has to be owned other ways regex will not be able to use it*:
     let file_raw_data =fs::read_to_string(xml_file_path).unwrap().as_str().to_owned();

@@ -6,14 +6,14 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 use std::{env, fs};
-use tokenizer::tokenizer;
 use xmlwriter::XmlWriter;
+use crate::tokenizer::tokenizer;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let xml_file_path = search_jack_files(args[1].as_str());
     for file in xml_file_path{
-        tokenizer(file.to_string())
+        tokenizer(file);
     }
 }
 

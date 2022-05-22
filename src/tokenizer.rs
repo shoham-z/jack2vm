@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fs;
 use regex::Regex;
 use crate::xmlwriter::XmlWriter;
@@ -23,24 +22,23 @@ pub fn tokenizer(xml_file_path: String) {
     //this way we kick out all the comments:
     let regex_no_comments:Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
 
-    let mut xml_writer:XmlWriter = XmlWriter::new(&xml_file_path);
+    let mut xml_writer:XmlWriter = XmlWriter::new(&(xml_file_path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "MyT.jack"));
 
+    xml_writer.open_tag("tokens".to_string());
     //reading the data and *it has to be owned other ways regex will not be able to use it*:
     let file_raw_data =fs::read_to_string(xml_file_path).unwrap().as_str().to_owned();
     //none readable data that's way next line i transferred it to chars:
-    let mut after_no_comments = regex_no_comments.replace_all(&file_raw_data, "");
+    let after_no_comments = regex_no_comments.replace_all(&file_raw_data, "");
     //a vectors for all the chars:
     let mut chars_vec =vec![];
     for text in after_no_comments.chars() {
-        print!("{}", text);
+        //print!("{}", text);
         if text != '\n' || text != ' ' {
             chars_vec.push(text);
         }
     }
-    let saved_key_words = vec!["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
-    let saved_symbols = vec![";","-","=","+", "*", "/",".","{","}","(",")","[","]","<",">","&","|", ",", "~"];
     let mut word =String::new();
-    for mut index in 0..(chars_vec.len()-1)  {
+    for index in 0..(chars_vec.len()-1)  {
         //checking if the index is oversize the array:
         if index <chars_vec.len(){
             if chars_vec[index] == '/' && chars_vec[index+1] == '*'{
@@ -53,7 +51,7 @@ pub fn tokenizer(xml_file_path: String) {
             word.push(chars_vec[index]); //combining all the chars until we get a valid word\symbol\identifier
             if !(word.contains("\t") || word.contains("\n")) {
                 //checking if the word is a Key word
-                if saved_key_words.contains(&&*word) && (saved_symbols.contains(&&*chars_vec[index+1].to_string())  || (chars_vec[index+1] == ' ')) {
+                if SAVED_KEYWORDS.contains(&&*word) && (SAVED_SYMBOLS.contains(&&*chars_vec[index+1].to_string())  || (chars_vec[index+1] == ' ')) {
                     xml_writer.write("keyword".to_string(),word.to_string());
                     word.clear();
                 }
@@ -73,7 +71,7 @@ pub fn tokenizer(xml_file_path: String) {
                 }
                 //checking if its a symbol:
                 //******note!!! -> the check for symbols most come before the check for identifier*****
-                else if saved_symbols.contains(&&*word) { //checking if its a symbol
+                else if SAVED_SYMBOLS.contains(&&*word) { //checking if its a symbol
                     if word == "<"{
                         xml_writer.write("symbol".to_string(), "&lt;".to_string());
                     }
@@ -93,7 +91,7 @@ pub fn tokenizer(xml_file_path: String) {
                 }
                 // checking if its identifier:
                 //******note!!! -> the check for symbols most come before the check for identifier*****
-                else if saved_symbols.contains(&&*chars_vec[index + 1].to_string()) || chars_vec[index+1] ==' ' {
+                else if SAVED_SYMBOLS.contains(&&*chars_vec[index + 1].to_string()) || chars_vec[index+1] ==' ' {
                     if word.parse::<i32>().is_ok() {
                         xml_writer.write("integerConstant".to_string(), word.to_string());
                     }
@@ -109,5 +107,5 @@ pub fn tokenizer(xml_file_path: String) {
         }
     }
 
-    xml_writer.write_last();
+    xml_writer.close_tag("tokens".to_string());
 }

@@ -20,11 +20,9 @@ impl XmlWriter {
     ///
     /// * This self xmlwriter object
     pub fn new(path: &String) -> Self {
-        let mut xmlwriter = XmlWriter {
-            xmlfile: File::create(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "MyT.xml").unwrap(),
-        };
-        xmlwriter.xmlfile.write("<tokens>\n".as_ref());
-        xmlwriter
+        XmlWriter {
+            xmlfile: File::create(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + ".xml").unwrap(),
+        }
     }
 
     /// Writes to an xml file
@@ -36,11 +34,16 @@ impl XmlWriter {
     pub fn write(&mut self, tag: String, content: String) {
         let opening_tag = LEFT_BRACKET.to_string() + tag.as_str() + RIGHT_BRACKET;
         let closing_tag = LEFT_BRACKET.to_string() + "/" + tag.as_str() + RIGHT_BRACKET;
-        self.xmlfile.write((opening_tag + WHITESPACE + content.as_str() + WHITESPACE + closing_tag.as_str() + "\n").as_ref());
+        self.xmlfile.write((opening_tag + WHITESPACE + content.as_str() + WHITESPACE + closing_tag.as_str() + "\n").as_ref()).expect("ERROR WRITING TOKENS");
     }
 
-    /// Destructor for xmlwriter in order to write the closing bracket
-    pub fn write_last(&mut self) {
-        self.xmlfile.write((LEFT_BRACKET.to_string() + "/" + "tokens" + RIGHT_BRACKET).as_ref());
+    /// Writes an opening tag
+    pub fn open_tag(&mut self, tag:String){
+        self.xmlfile.write(("<".to_owned() + &tag + ">\n".as_ref()).as_ref()).expect("ERROR WRITING TOKENS");
+    }
+
+    /// Writes a closing tag
+    pub fn close_tag(&mut self, tag:String) {
+        self.xmlfile.write(("</".to_owned() + &tag + ">\n".as_ref()).as_ref()).expect("ERROR WRITING TOKENS");
     }
 }

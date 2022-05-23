@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::env::vars;
 use std::fs;
 use std::io::BufRead;
+use std::process::id;
 use regex::Regex;
 use crate::xmlwriter::XmlWriter;
 
@@ -80,8 +81,12 @@ impl CompilationEngine {
         println!("{}", count);
 
         let mut func_contents: String = "".to_string();
-        for mut index in 1..count {
-            let current_line = lines.next().unwrap();
+        for mut index in 0..count - 2 {
+            let current_line;
+            match lines.next() {
+                None => { continue; }
+                Some(value) => { current_line = value }
+            };
             //println!("{}", index);
             //println!("{:?}", current_line);
 
@@ -90,8 +95,8 @@ impl CompilationEngine {
             let trimmed_line = cleared_carriage_return.trim_start();
             let mut first_word = trimmed_line.split(" ").nth(0).unwrap();
             let mut is_func = false;
-            for item in CLASS_FUNC_TYPES{
-                if item==first_word{
+            for item in CLASS_FUNC_TYPES {
+                if item == first_word {
                     is_func = true;
                     break;
                 }
@@ -99,23 +104,23 @@ impl CompilationEngine {
             if is_func {
                 func_contents += trimmed_line;
                 let mut current_line = "";
-                index+=1;
+                index += 1;
                 match lines.next() {
                     None => {}
                     Some(value) => { current_line = value.trim_start(); }
                 }
                 //println!("we're almost there");
 
-                while !current_line.contains("}") && index<count {
-                    index+=1;
-                    if !current_line.is_empty(){
-                        func_contents += current_line;
+                while !current_line.contains("}") && index < count {
+                    index += 1;
+                    if !current_line.is_empty() {
+                        func_contents += ("\n".to_string() + current_line).as_str();
                         current_line = lines.next().unwrap();
                         //println!("good job shoham");
                     }
-
                 }
                 self.compile_subroutine_dec(func_contents.to_string());
+                func_contents = "".to_string();
             }
         }
         self.output_file.close_tag("class".to_string());
@@ -145,11 +150,6 @@ impl CompilationEngine {
 
         let mut next: &str;
 
-        //let attempt = line.split(",");
-
-        //println!("{:?}", attempt);
-        //println!("{:?}", attempt.size_hint());
-
         let attempt = line.split(",");
         if attempt.size_hint().0 > 0 {
             loop {
@@ -171,45 +171,52 @@ impl CompilationEngine {
     /// Compiles a complete method, function or constructor.
     fn compile_subroutine_dec(&mut self, content: String) {
         println!("{}",content);
+        let mut scope_count = 0;
 
         self.output_file.open_tag("subroutineDec".to_string());
         let mut lines = content.split("\n");
         let mut words = lines.next().unwrap().split(" ");
         for word in words {
+            //println!("{}", word);
             if !word.is_empty() {
-                if !word.contains("{")
-                {
-                    if !word.contains("(") {
-                        self.output_file.write("keyword".to_string(), word.to_string()); // type or return type of the function
-                    } else {
-                        let mut id = word.split("(");
-                        self.output_file.write("identifier".to_string(), id.nth(0).unwrap().to_string()); // name of function
-                        self.output_file.write("symbol".to_string(), "(".to_string());
-                        let bruh = id.nth(1);
-                        let dude;
-                        let mut params = "";
-                        match bruh {
-                            None => {}
-                            Some(value) => {
-                                dude = value.split(")").nth(0);
-                                match dude {
-                                    None => {}
-                                    Some(value) => { params = value }
-                                };
-                            }
-                        };
-                        self.compile_parameter_list(params.to_string());
+                if word.contains("{") {
+                    scope_count += 1;
+                }
+                if word.contains("}") {
+                    scope_count -= 1;
+                }
+                println!("{}", scope_count);
+                if !word.contains("(") {
+                    self.output_file.write("keyword".to_string(), word.to_string()); // type or return type of the function
+                } else {
+                    let mut id = word.split("(");
+                    self.output_file.write("identifier".to_string(), id.nth(0).unwrap().to_string()); // name of function
+                    self.output_file.write("symbol".to_string(), "(".to_string());
+                    let bruh = id.nth(1);
+                    let dude;
+                    let mut params = "";
+                    match bruh {
+                        None => {}
+                        Some(value) => {
+                            dude = value.split(")").nth(0);
+                            match dude {
+                                None => {}
+                                Some(value) => { params = value }
+                            };
+                        }
+                    };
+                    self.compile_parameter_list(params.to_string());
 
 
-                        self.output_file.write("symbol".to_string(), ")".to_string());
-                    }
+                    self.output_file.write("symbol".to_string(), ")".to_string());
+                }
+                if scope_count == 0 {
+                    break;
                 }
             }
         }
 
         let body = content.split("{").nth(1).unwrap().split("}").nth(0).unwrap();
-
-        println!("{}", body);
 
         self.compile_subroutine_body(body.to_string());
 
@@ -257,6 +264,8 @@ impl CompilationEngine {
     fn compile_subroutine_body(&mut self, content: String) {
         self.output_file.open_tag("subroutineBody".to_string());
 
+        //println!("{}", content);
+
         self.output_file.write("symbol".to_string(), "{".to_string());
 
         self.compile_statements(content.replace("{", "").replace("}", ""));
@@ -278,6 +287,7 @@ impl CompilationEngine {
     /// Does not handle the enclosing "()".
     fn compile_statements(&mut self, content: String) {
         self.output_file.open_tag("statements".to_string());
+        //println!("{}", content);
 
 
         self.output_file.close_tag("statements".to_string());

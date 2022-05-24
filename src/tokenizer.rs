@@ -6,16 +6,6 @@ use crate::xmlwriter::XmlWriter;
 static SAVED_KEYWORDS: [&str; 21] = ["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
 static SAVED_SYMBOLS: [&str; 19] = [";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
 
-const KEYWORD: &str = "keyword";
-
-const SYMBOL: &str = "symbol";
-
-const IDENTIFIER: &str = "identifier";
-
-const INT_CONST: &str = "integerConstant";
-
-const STRING_CONST: &str = "stringConstant";
-
 //It is was too complicated to transform this function into a class, like the suggested api
 pub fn tokenizer(xml_file_path: String) {
 

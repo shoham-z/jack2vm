@@ -1,12 +1,9 @@
-use std::borrow::Borrow;
-use std::env::vars;
 use std::fs;
-use std::io::BufRead;
-use std::process::id;
+use std::ops::Sub;
 use regex::Regex;
 use crate::xmlwriter::XmlWriter;
 
-static CLASS_VAR_TYPES: [&str; 2] = ["static", "method"];
+static CLASS_VAR_TYPES: [&str; 2] = ["static", "field"];
 static OP: [&str; 5] = ["-", "=", "+", "<", ">"];
 static DATA_TYPES: [&str; 6] = ["int", "boolean", "char", "String", "Array", "void"];
 static CLASS_FUNC_TYPES: [&str; 3] = ["function", "method", "constructor"];
@@ -33,7 +30,7 @@ impl CompilationEngine {
         let remove_comments: Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
         let file_contents = fs::read_to_string(path).unwrap().as_str().to_owned();
 
-        let code = remove_comments.replace_all(&file_contents, "").to_string();
+        let code = remove_comments.replace_all(&file_contents, "\n").to_string();
 
         let lines = code.split("\n");
         for line in lines {
@@ -57,11 +54,13 @@ impl CompilationEngine {
         self.output_file.open_tag("class".to_string());
 
         let code = self.input_file.to_string();
+        let lines = code.lines();
 
-        let lines = code.split("\n");
+        let count = lines.count();
+        let mut lines = code.lines();
 
-        for line in lines {
-            //println!("{}", line.trim_start());
+        for _index in 1..count {
+            let line = lines.nth(0).unwrap();
             let trimmed_line = line.trim_start();
             let first_word = trimmed_line.split(" ").nth(0).unwrap();
             if first_word == "class" {
@@ -70,59 +69,63 @@ impl CompilationEngine {
                 self.output_file.write("identifier".to_string(), trimmed_line.split(" ").nth(1).unwrap().to_string());//class name
 
                 self.output_file.write("symbol".to_string(), "{".to_string());//opening bracket
-            } else if CLASS_VAR_TYPES.contains(&first_word) {
-                self.compile_class_var_dec(line.borrow().to_string());
+                break;
             }
         }
 
-        let mut lines = code.split("\n");
 
-        let count = code.split("\n").count();
-        println!("{}", count);
-
-        let mut func_contents: String = "".to_string();
-        for mut index in 0..count - 2 {
-            let current_line;
-            match lines.next() {
-                None => { continue; }
-                Some(value) => { current_line = value }
-            };
-            //println!("{}", index);
-            //println!("{:?}", current_line);
-
-
-            let cleared_carriage_return = current_line.replace("\r", "");
-            let trimmed_line = cleared_carriage_return.trim_start();
-            let mut first_word = trimmed_line.split(" ").nth(0).unwrap();
-            let mut is_func = false;
-            for item in CLASS_FUNC_TYPES {
-                if item == first_word {
-                    is_func = true;
-                    break;
-                }
+        let mut last_func = "";
+        let mut class_contents: Vec<&str> = Vec::new();
+        let mut size = 0;
+        let mut current_line = lines.nth(0).unwrap();
+        //to get all the content of the class, such as fields, statics, constructors, methods and functions
+        for index in 1..lines.clone().count() {
+            if size == 0 { class_contents.insert(class_contents.clone().len(), current_line); } else { class_contents.insert(size, current_line); }
+            let tmp = lines.clone().nth(index);
+            match tmp {
+                None => {}
+                Some(value) => { current_line = value; }
             }
-            if is_func {
-                func_contents += trimmed_line;
-                let mut current_line = "";
-                index += 1;
-                match lines.next() {
-                    None => {}
-                    Some(value) => { current_line = value.trim_start(); }
-                }
-                //println!("we're almost there");
-
-                while !current_line.contains("}") && index < count {
-                    index += 1;
-                    if !current_line.is_empty() {
-                        func_contents += ("\n".to_string() + current_line).as_str();
-                        current_line = lines.next().unwrap();
-                        //println!("good job shoham");
+            size = class_contents.clone().len().sub(1);
+        }
+        //for line in class_contents.clone() {  println!("{:?}", line);  }
+        for line in class_contents {
+            let mut words = line.split_whitespace();
+            let tmp = words.nth(0);
+            let mut first_word = "";
+            match tmp {
+                None => {}
+                Some(value) => { first_word = value; }
+            }
+            if CLASS_VAR_TYPES.contains(&first_word) {
+                self.compile_class_var_dec(line.to_string());
+            }
+            if CLASS_FUNC_TYPES.contains(&first_word) {
+                let mut func_contents: &str = "";
+                for cloned_line in lines.clone() {
+                    let mut words = cloned_line.split_whitespace();
+                    let tmp = words.nth(0);
+                    let mut first_word = "";
+                    match tmp {
+                        None => {}
+                        Some(value) => { first_word = value; }
+                    }
+                    if CLASS_FUNC_TYPES.contains(&first_word) && line.trim_start() != cloned_line.trim_start() && code.find(line).unwrap() < code.find(cloned_line).unwrap() {
+                        func_contents = code.get(code.find(line).unwrap()..code.find(cloned_line).unwrap()).unwrap();
+                        self.compile_subroutine_dec(func_contents.to_string());
+                        last_func = func_contents;
+                    } else if last_func != func_contents {
+                        func_contents = code.get(code.find(line).unwrap()..code.len() - 5).unwrap();
+                        self.compile_subroutine_dec(func_contents.to_string());
+                        last_func = func_contents;
                     }
                 }
-                self.compile_subroutine_dec(func_contents.to_string());
-                func_contents = "".to_string();
             }
         }
+
+
+        self.output_file.write("symbol".to_string(), "}".to_string());//closing bracket
+
         self.output_file.close_tag("class".to_string());
     }
 
@@ -169,56 +172,32 @@ impl CompilationEngine {
     }
 
     /// Compiles a complete method, function or constructor.
-    fn compile_subroutine_dec(&mut self, content: String) {
-        println!("{}",content);
-        let mut scope_count = 0;
-
+    pub fn compile_subroutine_dec(&mut self, content: String) {
         self.output_file.open_tag("subroutineDec".to_string());
-        let mut lines = content.split("\n");
-        let mut words = lines.next().unwrap().split(" ");
-        for word in words {
-            //println!("{}", word);
-            if !word.is_empty() {
-                if word.contains("{") {
-                    scope_count += 1;
-                }
-                if word.contains("}") {
-                    scope_count -= 1;
-                }
-                println!("{}", scope_count);
-                if !word.contains("(") {
-                    self.output_file.write("keyword".to_string(), word.to_string()); // type or return type of the function
-                } else {
-                    let mut id = word.split("(");
-                    self.output_file.write("identifier".to_string(), id.nth(0).unwrap().to_string()); // name of function
-                    self.output_file.write("symbol".to_string(), "(".to_string());
-                    let bruh = id.nth(1);
-                    let dude;
-                    let mut params = "";
-                    match bruh {
-                        None => {}
-                        Some(value) => {
-                            dude = value.split(")").nth(0);
-                            match dude {
-                                None => {}
-                                Some(value) => { params = value }
-                            };
-                        }
-                    };
-                    self.compile_parameter_list(params.to_string());
+
+        let func_dec = content.get(0..content.find("{").unwrap()).unwrap();
+
+        let mut words = func_dec.split_whitespace();
+
+        self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
+
+        self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine return type
+
+        self.output_file.write("identifier".to_string(), words.nth(0).unwrap().split("(").nth(0).unwrap().to_string());//subroutine name
+
+        self.output_file.write("symbol".to_string(), "(".to_string());
+
+        let param_list = func_dec.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap();
+
+        self.compile_parameter_list(param_list.to_string());
+
+        self.output_file.write("symbol".to_string(), ")".to_string());
 
 
-                    self.output_file.write("symbol".to_string(), ")".to_string());
-                }
-                if scope_count == 0 {
-                    break;
-                }
-            }
-        }
+        let func_body= content.get(content.find("{").unwrap()..content.rfind("}").unwrap()+1).unwrap();
 
-        let body = content.split("{").nth(1).unwrap().split("}").nth(0).unwrap();
 
-        self.compile_subroutine_body(body.to_string());
+        self.compile_subroutine_body(func_body.to_string());
 
         self.output_file.close_tag("subroutineDec".to_string());
     }
@@ -231,15 +210,10 @@ impl CompilationEngine {
         if content.len() > 0 {
             let mut vars = content.split(",");
 
-            let count = vars.count();
+            let count = content.find(",");
 
-            vars = content.split(",");
-
-            if count == 0 { return; }
-
-            let times = count - 2; // one to get to the end of the collection, and another one to not write a ',' after the last parameter
-
-            if count > 1 {
+            if count.is_some() {
+                let times = count.unwrap() - 1; // one to get to the end of the collection
                 let mut var_split;
                 for _index in 1..times {
                     var_split = vars.next().unwrap().split(" ");
@@ -264,11 +238,11 @@ impl CompilationEngine {
     fn compile_subroutine_body(&mut self, content: String) {
         self.output_file.open_tag("subroutineBody".to_string());
 
-        //println!("{}", content);
-
         self.output_file.write("symbol".to_string(), "{".to_string());
 
-        self.compile_statements(content.replace("{", "").replace("}", ""));
+        println!("{}", content.clone().get(content.find("{").unwrap()+1..content.rfind("}").unwrap()).unwrap());
+
+        self.compile_statements(content.get(content.find("{").unwrap()+1..content.rfind("}").unwrap()).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), "}".to_string());
 
@@ -279,6 +253,7 @@ impl CompilationEngine {
     fn compile_var_dec(&mut self, content: String) {
         self.output_file.open_tag("varDec".to_string());
 
+        //This is possible and should be handled: "var int i, sum;"
 
         self.output_file.close_tag("varDec".to_string());
     }

@@ -101,6 +101,7 @@ impl CompilationEngine {
                 self.compile_class_var_dec(line.to_string());
             }
             if CLASS_FUNC_TYPES.contains(&first_word) {
+                println!("{:?}",first_word);
                 let mut func_contents: &str = "";
                 for cloned_line in lines.clone() {
                     let mut words = cloned_line.split_whitespace();
@@ -110,7 +111,7 @@ impl CompilationEngine {
                         None => {}
                         Some(value) => { first_word = value; }
                     }
-                    if CLASS_FUNC_TYPES.contains(&first_word) && line.trim_start() != cloned_line.trim_start() && code.find(line).unwrap() < code.find(cloned_line).unwrap() {
+                    if CLASS_FUNC_TYPES.contains(&first_word) && code.find(line).unwrap() < code.find(cloned_line).unwrap() {
                         func_contents = code.get(code.find(line).unwrap()..code.find(cloned_line).unwrap()).unwrap();
                         self.compile_subroutine_dec(func_contents.to_string());
                         last_func = func_contents;
@@ -194,7 +195,7 @@ impl CompilationEngine {
         self.output_file.write("symbol".to_string(), ")".to_string());
 
 
-        let func_body= content.get(content.find("{").unwrap()..content.rfind("}").unwrap()+1).unwrap();
+        let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
 
 
         self.compile_subroutine_body(func_body.to_string());
@@ -240,9 +241,25 @@ impl CompilationEngine {
 
         self.output_file.write("symbol".to_string(), "{".to_string());
 
-        println!("{}", content.clone().get(content.find("{").unwrap()+1..content.rfind("}").unwrap()).unwrap());
+        let body_content = content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap();
+        //println!("{:?}", body_content);
+        let mut stop_sign = "";
+        let lines = body_content.lines();
+        for line in lines {
+            if line != "" {
+                if let Some(value) = line.trim().split_whitespace().nth(0) {
+                    if value == "var" {
+                        self.compile_var_dec(line.trim().to_string());
+                    } else {
+                        stop_sign = value;
+                        break;
+                    }
+                }
+            }
+        }
+        //println!("{}", body_content.to_string().get(body_content.find(stop_sign).unwrap()..body_content.len() - 1).unwrap());
 
-        self.compile_statements(content.get(content.find("{").unwrap()+1..content.rfind("}").unwrap()).unwrap().to_string());
+        self.compile_statements(body_content.to_string().get(body_content.find(stop_sign).unwrap()..body_content.len() - 1).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), "}".to_string());
 
@@ -252,6 +269,34 @@ impl CompilationEngine {
     /// Compiles a var declaration.
     fn compile_var_dec(&mut self, content: String) {
         self.output_file.open_tag("varDec".to_string());
+        //println!("{}", content);
+
+        self.output_file.write("keyword".to_string(),"var".to_string());
+
+        let comma = content.find(",");
+
+        if let Some(value) = comma {
+
+            // TO DO: handle more than one var name
+            // EXAMPLE: "var int i, sum;"
+
+            let mut words = content.split_whitespace();
+
+
+        }else{
+            let mut words = content.split_whitespace();
+
+            self.output_file.write("keyword".to_string(), words.nth(1).unwrap().to_string());
+
+            let var_name = words.nth(0).unwrap();
+
+            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len()-1).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), ";".to_string());
+
+            //for word in content.split_whitespace(){println!("{}",word);}
+
+        }
 
         //This is possible and should be handled: "var int i, sum;"
 

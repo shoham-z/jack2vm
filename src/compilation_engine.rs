@@ -350,22 +350,19 @@ impl CompilationEngine {
             } else if first_word == "do" {
                 self.compile_do(line.trim().to_string());
             } else if first_word == "while" {
-                let mut segment = "".to_string();
                 let start_of_statement = line;
                 let mut lines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
                 print!("\n\n\n");
                 for newline in lines {
-
                     if !newline.is_empty() {
                         //TO DO: come up with a new algorithm
                     }
                 }
-                println!("{:?}", segment);
+                //println!("{:?}", segment);
 
-                self.compile_while((segment.to_string()).to_string());
+                //self.compile_while((segment.to_string()).to_string());
                 //self.compile_while((segment.to_string() + "\r\n}").to_string());
             } else if first_word == "if" {
-                let mut segment = "".to_string();
                 let start_of_statement = line;
                 let mut newlines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
                 for newline in newlines {
@@ -373,7 +370,7 @@ impl CompilationEngine {
                         //TO DO: come up with a new algorithm
                     }
                 }
-                self.compile_if((segment.to_string() + "\r\n}").to_string());
+                //self.compile_if((segment.to_string() + "\r\n}").to_string());
             } else if ["return", "return;"].contains(&first_word) {
                 self.compile_return(line.trim().to_string());
             }
@@ -387,6 +384,30 @@ impl CompilationEngine {
     /// Compiles a let statement.
     fn compile_let(&mut self, content: String) {
         self.output_file.open_tag("letStatement".to_string());
+
+        self.output_file.write("keyword".to_string(), "let".to_string());
+
+        println!("{} : {}", content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap(), content);
+
+        let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap();
+
+        if assign_to.contains("[") {
+            self.output_file.write("identifier".to_string(), assign_to.split("[").nth(0).unwrap().to_string());
+
+
+            self.output_file.write("symbol".to_string(), "[".to_string());
+
+            self.output_file.write("identifier".to_string(), content.get(content.find("[").unwrap() + 1..content.find("]").unwrap()).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), "]".to_string());
+        } else {
+            self.output_file.write("identifier".to_string(), assign_to.to_string());
+        }
+        self.output_file.write("symbol".to_string(), "=".to_string());
+
+        self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().to_string());
+
+        self.output_file.write("symbol".to_string(), ";".to_string());
 
 
         self.output_file.close_tag("letStatement".to_string());

@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fs;
 use std::ops::{Index, Sub};
 
@@ -334,25 +335,45 @@ impl CompilationEngine {
     /// Does not handle the enclosing "()".
     fn compile_statements(&mut self, content: String) {
         self.output_file.open_tag("statements".to_string());
-        //println!("{}", content);
 
-        let lines = content.lines();
+        let mut lines = content.lines();
         let mut first_word = "";
         let mut temp;
         for line in lines {
             temp = line.trim().split_whitespace().nth(0);
-            match temp{
+            match temp {
                 None => {}
-                Some(value) => {first_word = value;}
+                Some(value) => { first_word = value; }
             }
             if first_word == "let" {
                 self.compile_let(line.trim().to_string());
             } else if first_word == "do" {
                 self.compile_do(line.trim().to_string());
             } else if first_word == "while" {
-                self.compile_while(line.trim().to_string());
+                let mut segment = "".to_string();
+                let start_of_statement = line;
+                let mut lines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
+                print!("\n\n\n");
+                for newline in lines {
+
+                    if !newline.is_empty() {
+                        //TO DO: come up with a new algorithm
+                    }
+                }
+                println!("{:?}", segment);
+
+                self.compile_while((segment.to_string()).to_string());
+                //self.compile_while((segment.to_string() + "\r\n}").to_string());
             } else if first_word == "if" {
-                self.compile_if(line.trim().to_string());
+                let mut segment = "".to_string();
+                let start_of_statement = line;
+                let mut newlines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
+                for newline in newlines {
+                    if !newline.is_empty() {
+                        //TO DO: come up with a new algorithm
+                    }
+                }
+                self.compile_if((segment.to_string() + "\r\n}").to_string());
             } else if ["return", "return;"].contains(&first_word) {
                 self.compile_return(line.trim().to_string());
             }
@@ -375,6 +396,18 @@ impl CompilationEngine {
     fn compile_if(&mut self, content: String) {
         self.output_file.open_tag("ifStatement".to_string());
 
+        self.output_file.write("keyword".to_string(), "if".to_string());
+
+        self.output_file.write("symbol".to_string(), "(".to_string());
+
+        self.compile_expression_list(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+
+        self.output_file.write("symbol".to_string(), ")".to_string());
+
+        //println!("if: {:?}",content);
+        //println!("{:?}",content.get(content.find("{").unwrap() + 1..content.find("}").unwrap()));
+
+        self.compile_statements(content.get(content.find("{").unwrap() + 1..content.find("}").unwrap()).unwrap().to_string());
 
         self.output_file.close_tag("ifStatement".to_string());
     }
@@ -383,6 +416,17 @@ impl CompilationEngine {
     fn compile_while(&mut self, content: String) {
         self.output_file.open_tag("whileStatement".to_string());
 
+        self.output_file.write("keyword".to_string(), "while".to_string());
+
+        self.output_file.write("symbol".to_string(), "(".to_string());
+        //println!("{:?}",content.get(content.find("{").unwrap() + 1..content.find("}").unwrap()));
+        //println!("\n\nwhile: {:?}\n\n",content);
+
+        self.compile_expression_list(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+
+        self.output_file.write("symbol".to_string(), ")".to_string());
+
+        self.compile_statements(content.get(content.find("{").unwrap() + 1..content.find("}").unwrap()).unwrap().to_string());
 
         self.output_file.close_tag("whileStatement".to_string());
     }
@@ -393,23 +437,23 @@ impl CompilationEngine {
 
         self.output_file.write("keyword".to_string(), "do".to_string());
 
-        let do_content = content.get(content.trim().find(" ").unwrap()+1..content.trim().len()-1).unwrap();
+        let do_content = content.get(content.trim().find(" ").unwrap() + 1..content.trim().len() - 1).unwrap();
 
         let dot = do_content.find('.');
 
-        if let Some(_value) = dot{
+        if let Some(_value) = dot {
             self.output_file.write("identifier".to_string(), do_content.get(0..do_content.find(".").unwrap()).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), ".".to_string());
 
-            self.output_file.write("identifier".to_string(), do_content.get(do_content.find(".").unwrap()+1..do_content.find("(").unwrap()).unwrap().to_string());
-        }else{
+            self.output_file.write("identifier".to_string(), do_content.get(do_content.find(".").unwrap() + 1..do_content.find("(").unwrap()).unwrap().to_string());
+        } else {
             self.output_file.write("identifier".to_string(), do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string());
         }
 
         self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.compile_expression_list(do_content.get(do_content.find("(").unwrap()+1..do_content.find(")").unwrap()).unwrap().to_string());
+        self.compile_expression_list(do_content.get(do_content.find("(").unwrap() + 1..do_content.find(")").unwrap()).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -422,6 +466,13 @@ impl CompilationEngine {
     fn compile_return(&mut self, content: String) {
         self.output_file.open_tag("returnStatement".to_string());
 
+        self.output_file.write("keyword".to_string(), "return".to_string());
+
+        if content != "return;" {
+            self.compile_expression(content.get(content.trim().find(" ").unwrap()..content.find(";").unwrap()).unwrap().trim().to_string());
+        }
+
+        self.output_file.write("symbol".to_string(), ";".to_string());
 
         self.output_file.close_tag("returnStatement".to_string());
     }
@@ -444,9 +495,9 @@ impl CompilationEngine {
     fn compile_term(&mut self, term: String) {
         self.output_file.open_tag("term".to_string());
 
-        if term=="this"{
+        if term == "this" {
             self.output_file.write("keyword".to_string(), term.trim().to_string());
-        }else {
+        } else {
             self.output_file.write("identifier".to_string(), term.to_string());
         }
         self.output_file.close_tag("term".to_string());
@@ -461,11 +512,10 @@ impl CompilationEngine {
             let mut current = 0;
             let mut expressions = content.split(",");
             for expression in expressions {
-                println!("{:?}",expression.trim());
                 self.compile_expression(expression.to_string());
                 expressions = content.split(",");
-                if current<commas{
-                    current +=1;
+                if current < commas {
+                    current += 1;
 
                     self.output_file.write("symbol".to_string(), ",".to_string());
                 }

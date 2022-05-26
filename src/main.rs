@@ -19,7 +19,6 @@ fn main() {
         tokenizer(file.to_string());
         let mut compilation_engine: CompilationEngine = CompilationEngine::new(&file);
         compilation_engine.compile_class();
-        break;
     }
 }
 

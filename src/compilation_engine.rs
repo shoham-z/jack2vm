@@ -1,6 +1,8 @@
 use std::fs;
-use std::ops::Sub;
+use std::ops::{Index, Sub};
+
 use regex::Regex;
+
 use crate::xmlwriter::XmlWriter;
 
 static CLASS_VAR_TYPES: [&str; 2] = ["static", "field"];
@@ -75,20 +77,9 @@ impl CompilationEngine {
 
 
         let mut last_func = "";
-        let mut class_contents: Vec<&str> = Vec::new();
-        let mut size = 0;
-        let mut current_line = lines.nth(0).unwrap();
+        let mut class_contents = code.get(code.find("{").unwrap()..code.rfind("}").unwrap() + 1).unwrap().lines();
         //to get all the content of the class, such as fields, statics, constructors, methods and functions
-        for index in 1..lines.clone().count() {
-            if size == 0 { class_contents.insert(class_contents.clone().len(), current_line); } else { class_contents.insert(size, current_line); }
-            let tmp = lines.clone().nth(index);
-            match tmp {
-                None => {}
-                Some(value) => { current_line = value; }
-            }
-            size = class_contents.clone().len().sub(1);
-        }
-        //for line in class_contents.clone() {  println!("{:?}", line);  }
+
         for line in class_contents {
             let mut words = line.split_whitespace();
             let tmp = words.nth(0);
@@ -101,7 +92,6 @@ impl CompilationEngine {
                 self.compile_class_var_dec(line.to_string());
             }
             if CLASS_FUNC_TYPES.contains(&first_word) {
-                println!("{:?}",first_word);
                 let mut func_contents: &str = "";
                 for cloned_line in lines.clone() {
                     let mut words = cloned_line.split_whitespace();
@@ -119,6 +109,10 @@ impl CompilationEngine {
                         func_contents = code.get(code.find(line).unwrap()..code.len() - 5).unwrap();
                         self.compile_subroutine_dec(func_contents.to_string());
                         last_func = func_contents;
+                    } else {
+                        func_contents = code.get(code.find(line).unwrap()..code.len() - 1).unwrap();
+                        self.compile_subroutine_dec(func_contents.to_string());
+                        break;
                     }
                 }
             }
@@ -134,22 +128,37 @@ impl CompilationEngine {
     fn compile_class_var_dec(&mut self, line: String) {
         self.output_file.open_tag("classVarDec".to_string());
 
-        let mut words = line.split(" ");
+        let mut words = line.split_whitespace();
 
-        for word in words.to_owned() {
-            if CLASS_VAR_TYPES.contains(&word) {
-                self.output_file.write("keyword".to_string(), word.to_string());
-            } else if DATA_TYPES.contains(&word) {
-                self.output_file.write("keyword".to_string(), word.to_string());
-            } else if word.contains(";") {
-                let mut word2 = word.split(";");
-                self.output_file.write("identifier".to_string(), word2.nth(0).unwrap().to_string());
-                self.output_file.write("symbol".to_string(), ";".to_string());
-            } else if word.contains(",") {
-                let mut word2 = word.split(";");
-                self.output_file.write("identifier".to_string(), word2.nth(0).unwrap().to_string());
+        self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
+
+        self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
+
+        let mut comma = line.find(",");
+
+        if let Some(_value) = comma {
+
+            // TO DO: handle more than one var name
+            // EXAMPLE: "field int i, sum;"
+            let mut var_name = words.next().unwrap();
+
+            while let Some(_value) = comma {
+                self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string());
                 self.output_file.write("symbol".to_string(), ",".to_string());
+                var_name = words.next().unwrap();
+
+                comma = var_name.find(",");
             }
+            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(';').unwrap()).unwrap().to_string());
+            self.output_file.write("symbol".to_string(), ";".to_string());
+        } else {
+            let var_name = words.nth(0).unwrap();
+
+            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), ";".to_string());
+
+            //for word in content.split_whitespace(){println!("{}",word);}
         }
 
         let mut next: &str;
@@ -194,9 +203,7 @@ impl CompilationEngine {
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
-
         let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
-
 
         self.compile_subroutine_body(func_body.to_string());
 
@@ -207,7 +214,8 @@ impl CompilationEngine {
     /// Does not handle the enclosing "()".
     fn compile_parameter_list(&mut self, content: String) {
         self.output_file.open_tag("parameterList".to_string());
-
+        let mut var_split;
+        let mut first_time = true;
         if content.len() > 0 {
             let mut vars = content.split(",");
 
@@ -217,20 +225,35 @@ impl CompilationEngine {
                 let times = count.unwrap() - 1; // one to get to the end of the collection
                 let mut var_split;
                 for _index in 1..times {
-                    var_split = vars.next().unwrap().split(" ");
+                    let temp = vars.next();
+
+                    match temp {
+                        None => { break; }
+                        Some(value) => {
+                            if !first_time {
+                                self.output_file.write("symbol".to_string(), ",".to_string());
+                            } else { first_time = false; }
+
+                            var_split = value.split_whitespace();
+                        }
+                    }
 
                     self.output_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
 
                     self.output_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
-
-                    self.output_file.write("symbol".to_string(), ",".to_string());
                 }
             }
-            let mut var_split = vars.next().unwrap().split(" ");
+            let temp = vars.next();
 
-            self.output_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
+            match temp {
+                None => {}
+                Some(value) => {
+                    var_split = value.split_whitespace();
+                    self.output_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
 
-            self.output_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
+                    self.output_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
+                }
+            }
         }
         self.output_file.close_tag("parameterList".to_string());
     }
@@ -257,7 +280,6 @@ impl CompilationEngine {
                 }
             }
         }
-        //println!("{}", body_content.to_string().get(body_content.find(stop_sign).unwrap()..body_content.len() - 1).unwrap());
 
         self.compile_statements(body_content.to_string().get(body_content.find(stop_sign).unwrap()..body_content.len() - 1).unwrap().to_string());
 
@@ -269,33 +291,38 @@ impl CompilationEngine {
     /// Compiles a var declaration.
     fn compile_var_dec(&mut self, content: String) {
         self.output_file.open_tag("varDec".to_string());
-        //println!("{}", content);
 
-        self.output_file.write("keyword".to_string(),"var".to_string());
+        self.output_file.write("keyword".to_string(), "var".to_string());
 
-        let comma = content.find(",");
+        let mut words = content.split_whitespace();
 
-        if let Some(value) = comma {
+        self.output_file.write("keyword".to_string(), words.nth(1).unwrap().to_string());
+
+        let mut comma = content.find(",");
+
+        if let Some(_value) = comma {
 
             // TO DO: handle more than one var name
             // EXAMPLE: "var int i, sum;"
+            let mut var_name = words.next().unwrap();
 
-            let mut words = content.split_whitespace();
+            while let Some(_value) = comma {
+                self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string());
+                self.output_file.write("symbol".to_string(), ",".to_string());
+                var_name = words.next().unwrap();
 
-
-        }else{
-            let mut words = content.split_whitespace();
-
-            self.output_file.write("keyword".to_string(), words.nth(1).unwrap().to_string());
-
+                comma = var_name.find(",");
+            }
+            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(';').unwrap()).unwrap().to_string());
+            self.output_file.write("symbol".to_string(), ";".to_string());
+        } else {
             let var_name = words.nth(0).unwrap();
 
-            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len()-1).unwrap().to_string());
+            self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), ";".to_string());
 
             //for word in content.split_whitespace(){println!("{}",word);}
-
         }
 
         //This is possible and should be handled: "var int i, sum;"
@@ -308,6 +335,29 @@ impl CompilationEngine {
     fn compile_statements(&mut self, content: String) {
         self.output_file.open_tag("statements".to_string());
         //println!("{}", content);
+
+        let lines = content.lines();
+        let mut first_word = "";
+        let mut temp;
+        for line in lines {
+            temp = line.trim().split_whitespace().nth(0);
+            match temp{
+                None => {}
+                Some(value) => {first_word = value;}
+            }
+            if first_word == "let" {
+                self.compile_let(line.trim().to_string());
+            } else if first_word == "do" {
+                self.compile_do(line.trim().to_string());
+            } else if first_word == "while" {
+                self.compile_while(line.trim().to_string());
+            } else if first_word == "if" {
+                self.compile_if(line.trim().to_string());
+            } else if ["return", "return;"].contains(&first_word) {
+                self.compile_return(line.trim().to_string());
+            }
+            first_word = "";
+        }
 
 
         self.output_file.close_tag("statements".to_string());
@@ -341,6 +391,29 @@ impl CompilationEngine {
     fn compile_do(&mut self, content: String) {
         self.output_file.open_tag("doStatement".to_string());
 
+        self.output_file.write("keyword".to_string(), "do".to_string());
+
+        let do_content = content.get(content.trim().find(" ").unwrap()+1..content.trim().len()-1).unwrap();
+
+        let dot = do_content.find('.');
+
+        if let Some(_value) = dot{
+            self.output_file.write("identifier".to_string(), do_content.get(0..do_content.find(".").unwrap()).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), ".".to_string());
+
+            self.output_file.write("identifier".to_string(), do_content.get(do_content.find(".").unwrap()+1..do_content.find("(").unwrap()).unwrap().to_string());
+        }else{
+            self.output_file.write("identifier".to_string(), do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string());
+        }
+
+        self.output_file.write("symbol".to_string(), "(".to_string());
+
+        self.compile_expression_list(do_content.get(do_content.find("(").unwrap()+1..do_content.find(")").unwrap()).unwrap().to_string());
+
+        self.output_file.write("symbol".to_string(), ")".to_string());
+
+        self.output_file.write("symbol".to_string(), ";".to_string());
 
         self.output_file.close_tag("doStatement".to_string());
     }
@@ -354,9 +427,10 @@ impl CompilationEngine {
     }
 
     /// Compiles an expression.
-    fn compile_expression(&mut self, content: String) {
+    fn compile_expression(&mut self, expression: String) {
         self.output_file.open_tag("expression".to_string());
 
+        self.compile_term(expression);
 
         self.output_file.close_tag("expression".to_string());
     }
@@ -367,10 +441,14 @@ impl CompilationEngine {
     /// A single look-ahead token, which may be one of "[" , "(" or ".",
     /// suffices to distinguish between the possibilities
     /// Any other token is not part of this term and should not be advanced over.
-    fn compile_term(&mut self, content: String) {
+    fn compile_term(&mut self, term: String) {
         self.output_file.open_tag("term".to_string());
 
-
+        if term=="this"{
+            self.output_file.write("keyword".to_string(), term.trim().to_string());
+        }else {
+            self.output_file.write("identifier".to_string(), term.to_string());
+        }
         self.output_file.close_tag("term".to_string());
     }
 
@@ -378,12 +456,22 @@ impl CompilationEngine {
     fn compile_expression_list(&mut self, content: String) {
         self.output_file.open_tag("expressionList".to_string());
 
-        let expressions = content.split(",");
+        if !content.is_empty() {
+            let commas = content.matches(",").count();
+            let mut current = 0;
+            let mut expressions = content.split(",");
+            for expression in expressions {
+                println!("{:?}",expression.trim());
+                self.compile_expression(expression.to_string());
+                expressions = content.split(",");
+                if current<commas{
+                    current +=1;
 
-        for expression in expressions {
-            self.compile_expression(expression.to_string());
+                    self.output_file.write("symbol".to_string(), ",".to_string());
+                }
+                expressions = content.split(",");
+            }
         }
-
         self.output_file.close_tag("expressionList".to_string());
     }
 }

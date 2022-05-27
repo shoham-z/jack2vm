@@ -3,16 +3,15 @@ use std::fs;
 use std::ops::{Index, Sub};
 
 use regex::Regex;
+use crate::ex;
 
 use crate::xmlwriter::XmlWriter;
 
+pub(crate) static KEYWORD_CONSTANT: [&str;4] = ["true", "false", "null","this"];
 static CLASS_VAR_TYPES: [&str; 2] = ["static", "field"];
-static OP: [&str; 5] = ["-", "=", "+", "<", ">"];
-static DATA_TYPES: [&str; 6] = ["int", "boolean", "char", "String", "Array", "void"];
+pub(crate) static OP: [&str; 9] = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
+pub(crate) static UNARY_OP: [&str; 2] = ["-", "~"];
 static CLASS_FUNC_TYPES: [&str; 3] = ["function", "method", "constructor"];
-static SAVED_SYMBOLS: [&str; 19] = [";", "-", "=", "+", "/", ".", "{", "}", "(", ")", "[", "]", "<", ">", "&", "|", "*", ",", "~"];
-static SAVED_KEYWORDS: [&str; 21] = ["class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"];
-
 
 pub struct CompilationEngine {
     output_file: XmlWriter,
@@ -350,27 +349,13 @@ impl CompilationEngine {
             } else if first_word == "do" {
                 self.compile_do(line.trim().to_string());
             } else if first_word == "while" {
-                let start_of_statement = line;
-                let mut lines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
-                print!("\n\n\n");
-                for newline in lines {
-                    if !newline.is_empty() {
-                        //TO DO: come up with a new algorithm
-                    }
-                }
-                //println!("{:?}", segment);
 
-                //self.compile_while((segment.to_string()).to_string());
-                //self.compile_while((segment.to_string() + "\r\n}").to_string());
-            } else if first_word == "if" {
-                let start_of_statement = line;
-                let mut newlines = content.get(content.find(start_of_statement).unwrap()..content.len() - 1).unwrap().lines();
-                for newline in newlines {
-                    if !newline.is_empty() {
                         //TO DO: come up with a new algorithm
-                    }
-                }
-                //self.compile_if((segment.to_string() + "\r\n}").to_string());
+
+            } else if first_word == "if" {
+
+                        //TO DO: come up with a new algorithm
+
             } else if ["return", "return;"].contains(&first_word) {
                 self.compile_return(line.trim().to_string());
             }
@@ -387,7 +372,7 @@ impl CompilationEngine {
 
         self.output_file.write("keyword".to_string(), "let".to_string());
 
-        println!("{} : {}", content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap(), content);
+        //println!("{} : {}", content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap(), content);
 
         let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap();
 
@@ -397,7 +382,7 @@ impl CompilationEngine {
 
             self.output_file.write("symbol".to_string(), "[".to_string());
 
-            self.output_file.write("identifier".to_string(), content.get(content.find("[").unwrap() + 1..content.find("]").unwrap()).unwrap().to_string());
+            self.compile_expression(content.get(content.find("[").unwrap() + 1..content.find("]").unwrap()).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), "]".to_string());
         } else {
@@ -502,7 +487,40 @@ impl CompilationEngine {
     fn compile_expression(&mut self, expression: String) {
         self.output_file.open_tag("expression".to_string());
 
-        self.compile_term(expression);
+        let mut index =usize::MAX;
+        let mut tmp;
+        let mut arr:Vec<usize> = Vec::new();
+        for op in OP{
+            tmp = expression.find(op);
+            match tmp {
+                None => {}
+                Some(value) => {index = value;}
+
+            }
+            if index!=usize::MAX{
+
+                arr.push(index);
+            }
+        }
+        index=usize::MAX;
+
+        for val in arr{
+            if val<index{
+                index = val;
+            }
+        }
+
+        //println!("{:?}",index);
+        if index==usize::MAX {
+            println!("{}", expression.to_string());
+        }
+        else{
+            println!("{}",expression.get(0..index).unwrap());
+
+            println!("{}",expression.get(index..index+1).unwrap());
+
+            self.compile_expression(expression.get(index + 1..expression.len()).unwrap().to_string());
+        }
 
         self.output_file.close_tag("expression".to_string());
     }

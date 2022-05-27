@@ -13,7 +13,7 @@ mod xmlwriter;
 mod tokenizer;
 mod compilation_engine;
 
-fn maian() {
+fn main() {
     let args: Vec<String> = env::args().collect();
     //println!("{}", args[1]);
 
@@ -136,72 +136,63 @@ fn deal_term(term:String){
 
 }
 
-fn main() {
+fn maain() {
     //ex("5*(a[i] - square.run())".to_string());
 
-    let code = "while (x) {
-         do erase();
-         let size = size;
-         do draw();
-      }
-      return;
-   }";
 
-    let mut code = "var char key;
-      var boolean exit;
+    let code = "var Array a;
+        var int length;
+        var int i, sum;
 
-      let exit = key;
-      while (exit) {
-         while (key) {
-            let key = key;
-            do moveSquare();
-         }
+	let length = Keyboard.readInt(\"HOW MANY NUMBERS? \");
+	let a = Array.new(length);
+	let i = 0;
 
-         if (key) { let exit = exit; }
-         if (key) { do square.decSize(); }
-         if (key) { do square.incSize(); }
-         if (key) { let direction = exit; }
-         if (key) { let direction = key; }
-         if (key) { let direction = square; }
-         if (key) { let direction = direction; }
+	while (i < length) {
+	    let a[i] = Keyboard.readInt(\"ENTER THE NEXT NUMBER: \");
+	    let i = i + 1;
+	}
 
-         while (key) {
-            let key = key;
-            do moveSquare();
-         }
-      }
-      return;
-      }";
+	let i = 0;
+	let sum = 0;
+
+	while (i < length) {
+	    let sum = sum + a[i];
+	    let i = i + 1;
+	}
+
+	do Output.printString(\"THE AVERAGE IS: \");
+	do Output.printInt(sum / length);
+	do Output.println();
+
+	return;";
 
 
     //println!("{}", code);
     let mut start_statement= "";
-    for line in code.lines(){ if line.contains("while"){start_statement = line; println!("{}",line);break;}}
+    for line in code.lines(){ if line.contains("while"){start_statement = line; break;}}
 
-    let mut open_count = code.matches("{").count();
-    let mut close_count = code.matches("}").count();
+    let mut open_count = 0;
+    let mut close_count = 0;
 
-    let mut lines = code.get(code.find(start_statement).unwrap()..code.len()).unwrap().lines();
-    let mut current_line = lines.nth(0).unwrap();
-    let mut block = code.get(code.find(start_statement).unwrap()..code.find(current_line).unwrap() + current_line.len()).unwrap();
-    loop {
+    let while_lines = code.get(code.find(start_statement).unwrap()..code.len()).unwrap().lines();
 
-        current_line = lines.nth(0).unwrap();
-        if !current_line.is_empty() {
-            open_count = block.matches("{").count();
-            close_count = block.matches("}").count();
-            println!("\nopen: {},close: {}  {}..{} : {}\n",open_count,close_count,code.find(start_statement).unwrap(),code.find(current_line).unwrap() + current_line.len(), current_line);
-            if open_count==close_count{
-                break;
-            }else if open_count<close_count{
-                panic!("bad code")
-            }
-            //code = code.get(0..code.find(current_line).unwrap()) + code.get(code.find(current_line).unwrap() + current_line.le)
-            block = code.get(code.find(start_statement).unwrap()..code.find(current_line).unwrap() + current_line.len()).unwrap();
+    let mut while_statement = "".to_string();
+    for line in while_lines{
+        if !line.is_empty() {
+            while_statement.push_str(line);
+            while_statement.push_str("\n");
+            open_count += line.matches("{").count();
+            close_count += line.matches("}").count();
+
+            if open_count == close_count && open_count!=0 {break}
+            else if open_count < close_count { panic!("ERROR IN THE JACK CODE!")}
+
+
         }
     }
 
-    println!("{}",block);
+    println!("{}",while_statement);
 
     //for line in code.get(code.find(start_statement).unwrap()..code.len()).unwrap().lines(){ println!("{}",line);}
 

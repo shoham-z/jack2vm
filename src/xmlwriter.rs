@@ -3,7 +3,6 @@ use std::io::Write;
 
 static RIGHT_BRACKET: &str = ">";
 static LEFT_BRACKET: &str = "<";
-static WHITESPACE: &str = " ";
 
 pub struct XmlWriter {
     pub xmlfile: File,

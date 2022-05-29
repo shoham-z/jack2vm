@@ -34,7 +34,7 @@ impl XmlWriter {
     pub fn write(&mut self, tag: String, content: String) {
         let opening_tag = LEFT_BRACKET.to_string() + tag.as_str() + RIGHT_BRACKET;
         let closing_tag = LEFT_BRACKET.to_string() + "/" + tag.as_str() + RIGHT_BRACKET;
-        self.xmlfile.write((opening_tag + WHITESPACE + content.as_str() + WHITESPACE + closing_tag.as_str() + "\n").as_ref()).expect("ERROR WRITING TOKENS");
+        self.xmlfile.write((opening_tag + content.as_str() + closing_tag.as_str() + "\n").as_ref()).expect("ERROR WRITING TOKENS");
     }
 
     /// Writes an opening tag

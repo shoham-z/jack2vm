@@ -1,12 +1,12 @@
 use std::fs;
 
 use regex::Regex;
-use crate::{deal_term, ex};
 
 use crate::xmlwriter::XmlWriter;
 
 pub(crate) static KEYWORD_CONSTANT: [&str; 4] = ["true", "false", "null", "this"];
 static CLASS_VAR_TYPES: [&str; 2] = ["static", "field"];
+static DATA_TYPES: [&str; 3] = ["int", "boolean", "char"];
 pub(crate) static OP: [&str; 9] = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
 pub(crate) static UNARY_OP: [&str; 2] = ["-", "~"];
 static CLASS_FUNC_TYPES: [&str; 3] = ["function", "method", "constructor"];
@@ -130,7 +130,12 @@ impl CompilationEngine {
 
         self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
 
-        self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
+        let data_type = words.nth(0).unwrap();
+        if DATA_TYPES.contains(&data_type) {
+            self.output_file.write("keyword".to_string(), data_type.to_string());
+        } else {
+            self.output_file.write("identifier".to_string(), data_type.to_string());
+        }
 
         let mut comma = line.find(",");
 
@@ -293,7 +298,12 @@ impl CompilationEngine {
 
         let mut words = content.split_whitespace();
 
-        self.output_file.write("keyword".to_string(), words.nth(1).unwrap().to_string());
+        let data_type = words.nth(1).unwrap();
+        if DATA_TYPES.contains(&data_type) {
+            self.output_file.write("keyword".to_string(), data_type.to_string());
+        } else {
+            self.output_file.write("identifier".to_string(), data_type.to_string());
+        }
 
         let mut comma = content.find(",");
 
@@ -468,7 +478,7 @@ impl CompilationEngine {
 
         self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.compile_expression_list(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+        self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -489,7 +499,7 @@ impl CompilationEngine {
 
         self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.compile_expression_list(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+        self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -552,52 +562,46 @@ impl CompilationEngine {
     fn compile_expression(&mut self, expression: String) {
         self.output_file.open_tag("expression".to_string());
 
-        let mut index =usize::MAX;
+        let mut index = usize::MAX;
         let mut tmp;
-        let mut arr:Vec<usize> = Vec::new();
-        for op in OP{
-            tmp = expression.find(op);
+        let mut arr: Vec<usize> = Vec::new();
+        for op in OP {
+            tmp = expression.trim().find(op);
             match tmp {
                 None => {}
-                Some(value) => {index = value;}
-
+                Some(value) => { index = value; }
             }
-            if index!=usize::MAX{
-
+            if index != usize::MAX {
                 arr.push(index);
             }
         }
-        index=usize::MAX;
+        index = usize::MAX;
 
-        for val in arr{
-            if val<index{
+        for val in arr {
+            if val < index {
                 index = val;
             }
         }
 
         //println!("{:?}",index);
-        if index==usize::MAX {
-
+        if index == usize::MAX {
             self.compile_term(expression.trim().to_string());
-
-
-        }
-        else {
-            if expression.get(0..index).unwrap().find("(").is_some() && expression.get(0..index).unwrap().find("(").unwrap() == 0 {
+        } else {
+            if expression.trim().get(0..index).unwrap().find("(").is_some() && expression.get(0..index).unwrap().find("(").unwrap() == 0 {
                 self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
             } else {
                 self.compile_term(expression.get(0..index).unwrap().trim().to_string());
 
-                let symbol = expression.get(index..index + 1).unwrap();
+                let symbol = expression.get(index..index + 1).unwrap().trim();
 
-                match symbol{
+                match symbol {
                     "<" => self.output_file.write("symbol".to_string(), "&lt;".to_string()),
                     ">" => self.output_file.write("symbol".to_string(), "&gt;".to_string()),
                     "&" => self.output_file.write("symbol".to_string(), "&amp;".to_string()),
-                    &_ => self.output_file.write("symbol".to_string(), symbol.to_string())
+                    &_ => self.output_file.write("symbol".to_string(), symbol.trim().to_string())
                 }
 
-                self.compile_expression(expression.get(index + 1..expression.len()).unwrap().to_string());
+                self.compile_expression(expression.get(index + 1..expression.len()).unwrap().trim().to_string());
             }
         }
         self.output_file.close_tag("expression".to_string());
@@ -611,40 +615,37 @@ impl CompilationEngine {
     /// Any other token is not part of this term and should not be advanced over.
     fn compile_term(&mut self, term: String) {
         self.output_file.open_tag("term".to_string());
-        for keyword in KEYWORD_CONSTANT{
-            if term == keyword.to_string(){
+        for keyword in KEYWORD_CONSTANT {
+            if term == keyword.to_string() {
                 self.output_file.write("keyword".to_string(), term.to_string());
                 break;
             }
         }
-        if term.find("(")==Some(0) && term.rfind(")")==Some(term.len()-1){
+        if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
             self.output_file.write("symbol".to_string(), "(".to_string());
-            if term.find("-")==Some(1){
+            if term.find("-") == Some(1) {
                 self.output_file.write("symbol".to_string(), "-".to_string());
-                deal_term(term.get(2..term.len()-1).unwrap().to_string())
-            } else if term.find("~")==Some(1) {
+                self.compile_term(term.get(2..term.len() - 1).unwrap().to_string())
+            } else if term.find("~") == Some(1) {
                 self.output_file.write("symbol".to_string(), "~".to_string());
-            } else{
-                ex(term.get(term.find("(").unwrap()+1..term.rfind(")").unwrap()).unwrap().to_string());
+            } else {
+                self.compile_expression(term.get(term.find("(").unwrap() + 1..term.rfind(")").unwrap()).unwrap().to_string());
             }
             self.output_file.write("symbol".to_string(), ")".to_string());
-        } else if term.to_ascii_lowercase().find("\"")==Some(0) && term.to_ascii_lowercase().find("\"")==Some(term.len()-1) {
-
+        } else if term.to_ascii_lowercase().find("\"") == Some(0) && term.to_ascii_lowercase().find("\"") == Some(term.len() - 1) {
             self.output_file.write("stringConstant".to_string(), term.get(term.find("\"").unwrap() + 1..term.find("\"").unwrap()).unwrap().to_string());
         } else if term.chars().all(char::is_numeric) { // check for integer constant
 
             self.output_file.write("integerConstant".to_string(), term.to_string());
-
-        } else if UNARY_OP.contains(&term.chars().next().unwrap().to_string().as_str()){
-        } else if term.find(".").is_some(){
+        } else if UNARY_OP.contains(&term.chars().next().unwrap().to_string().as_str()) {} else if term.find(".").is_some() {
             self.output_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), ".".to_string());
 
-            self.output_file.write("identifier".to_string(), term.get(term.find(".").unwrap()+1..term.find("(").unwrap()+1).unwrap().to_string());
+            self.output_file.write("identifier".to_string(), term.get(term.find(".").unwrap() + 1..term.find("(").unwrap() + 1).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), "(".to_string());
-            self.compile_expression_list(term.get(term.find("(").unwrap()+1..term.find(")").unwrap()).unwrap().to_string());
+            self.compile_expression_list(term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("[").is_some() {
@@ -652,11 +653,10 @@ impl CompilationEngine {
 
             self.output_file.write("symbol".to_string(), "[".to_string());
 
-            self.compile_expression(term.get(term.find("[").unwrap()+1..term.find("]").unwrap()).unwrap().to_string());
+            self.compile_expression(term.get(term.find("[").unwrap() + 1..term.find("]").unwrap()).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), "]".to_string());
-
-        } else{
+        } else {
             self.output_file.write("identifier".to_string(), term.to_string());
         }
         self.output_file.close_tag("term".to_string());

@@ -77,13 +77,11 @@ impl CompilationEngine {
                 break;
             }
         }
-
-
-        let mut last_func = "";
-        let class_contents = code.get(code.find("{").unwrap()..code.rfind("}").unwrap() + 1).unwrap().lines();
+        let mut class_contents = code.get(code.find("{").unwrap()..code.rfind("}").unwrap() + 1).unwrap().lines();
         //to get all the content of the class, such as fields, statics, constructors, methods and functions
 
-        for line in class_contents {
+        for _index in 1..class_contents.clone().count() {
+            let line = class_contents.nth(0).unwrap();
             let mut words = line.split_whitespace();
             let tmp = words.nth(0);
             let mut first_word = "";
@@ -97,29 +95,23 @@ impl CompilationEngine {
             if CLASS_FUNC_TYPES.contains(&first_word) {
                 // This is the source of the problem
                 // collect the lines one by one the same way as in while and if statement
-                let mut func_contents: &str = "";
-                for cloned_line in lines.clone() {
-                    let mut words = cloned_line.split_whitespace();
-                    let tmp = words.nth(0);
-                    let mut first_word = "";
-                    match tmp {
-                        None => {}
-                        Some(value) => { first_word = value; }
-                    }
-                    if CLASS_FUNC_TYPES.contains(&first_word) && code.find(line).unwrap() < code.find(cloned_line).unwrap() {
-                        func_contents = code.get(code.find(line).unwrap()..code.find(cloned_line).unwrap()).unwrap();
-                        self.compile_subroutine_dec(func_contents.to_string());
-                        last_func = func_contents;
-                    } else if last_func != func_contents {
-                        func_contents = code.get(code.find(line).unwrap()..code.len() - 5).unwrap();
-                        self.compile_subroutine_dec(func_contents.to_string());
-                        last_func = func_contents;
-                    } else {
-                        func_contents = code.get(code.find(line).unwrap()..code.len() - 1).unwrap();
-                        self.compile_subroutine_dec(func_contents.to_string());
+                let mut subroutine_code = Vec::new();
+                let new_code_source = code.get(code.find(line).unwrap()..code.len()).unwrap().lines();
+                let mut open_count = 0;
+                let mut close_count = 0;
+                for new_line in new_code_source {
+                    open_count += new_line.matches("{").count();
+                    close_count += new_line.matches("}").count();
+                    subroutine_code.push(new_line);
+
+                    if open_count == close_count && open_count != 0 {
                         break;
+                    } else if open_count < close_count {
+                        let tmp = "{";
+                        panic!("ERROR IN JACK CODE: Missing \'{}\'", tmp)
                     }
                 }
+                self.compile_subroutine_dec(subroutine_code.join("\n"));
             }
         }
 
@@ -348,19 +340,16 @@ impl CompilationEngine {
     /// Compiles a sequence of statements.
     /// Does not handle the enclosing "()".
     fn compile_statements(&mut self, content: String) {
-        println!("\nstatements: {:?}",content);
         self.output_file.open_tag("statements".to_string());
 
         let mut previous_statements = Vec::new();
-        let mut lines = content.lines();
+        let temp = content.clone();
+        let mut lines = temp.lines();
         let mut first_word = "";
         let mut temp;
-        for index in 1..lines.clone().count() {
-            let mut line = "";
-            let tmp = lines.next();
-            if tmp.is_some() {
-                line = tmp.unwrap();
-            }
+        if lines.clone().count() == 1 {
+            let line = content.to_string();
+
             temp = line.trim().split_whitespace().nth(0);
             match temp {
                 None => {}
@@ -372,108 +361,154 @@ impl CompilationEngine {
             } else if first_word == "do"
             {
                 self.compile_do(line.trim().to_string());
-            } else if first_word == "while"
+            } else if line.contains("return")
             {
-                let mut start_statement = "";
-                for line in content.lines() {
-                    if line.contains("while") && !previous_statements.contains(&index) {
-                        start_statement = line;
-                        previous_statements.push(index);
-                        break;
-                    }
-                }
-
-                let mut open_count = 0;
-                let mut close_count = 0;
-
-                let mut new_lines = content.lines();
-                let mut length = usize::MIN;
-                for place in 1..new_lines.clone().count() {
-                    let line = new_lines.next().unwrap();
-
-                    if place < index {
-                        length += line.len();
-                    }
-                }
-
-                let mut while_lines = Vec::new();
-                while_lines.push(start_statement);
-                for line in lines.clone() {
-                    while_lines.push(line);
-                }
-
-                let mut while_statement = "".to_string();
-                for line in while_lines {
-                    if !line.is_empty() {
-                        lines.next();
-                        while_statement.push_str(line);
-                        while_statement.push_str("\n");
-                        open_count += line.matches("{").count();
-                        close_count += line.matches("}").count();
-
-                        if open_count == close_count && open_count != 0 { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
-                    }
-                }
-                if while_statement.trim().chars().last() != Some('}') {
-                    while_statement.push_str("}");
-                }
-                self.compile_while(while_statement);
-            } else if first_word == "if" {
-                let mut start_statement = "";
-                for line in content.lines() {
-                    if line.contains("if") && !previous_statements.contains(&index) {
-                        start_statement = line;
-                        previous_statements.push(index);
-                        break;
-                    }
-                }
-
-                let mut open_count = 0;
-                let mut close_count = 0;
-
-                let mut new_lines = content.lines();
-                let mut length = usize::MIN;
-                for place in 1..new_lines.clone().count() {
-                    let line = new_lines.next().unwrap();
-
-                    if place < index {
-                        length += line.len();
-                    }
-                }
-
-                let mut if_lines = Vec::new();
-                if_lines.push(start_statement);
-                for line in lines.clone() {
-                    if_lines.push(line);
-                }
-
-                let mut if_statement = "".to_string();
-                for line in if_lines {
-                    if !line.is_empty() {
-                        lines.next();
-                        if_statement.push_str(line);
-                        if_statement.push_str("\n");
-                        open_count += line.matches("{").count();
-                        close_count += line.matches("}").count();
-
-                        if open_count == close_count && open_count != 0 { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
-                    }
-                }
-
-                self.compile_if(if_statement);
-            } else if ["return", "return;"].contains(&first_word) {
                 self.compile_return(line.trim().to_string());
             }
-            first_word = "";
-        }
+        } else {
+            for index in 1..lines.clone().count() {
+                let mut line = "";
+                let tmp = lines.next();
+                if tmp.is_some() {
+                    line = tmp.unwrap().trim();
+                }
+                temp = line.trim().split_whitespace().nth(0);
+                match temp {
+                    None => {}
+                    Some(value) => { first_word = value; }
+                }
+                if first_word == "while"
+                {
+                    let mut start_statement = "";
+                    for line in content.lines() {
+                        if line.contains("while") && !previous_statements.contains(&index) {
+                            start_statement = line;
+                            previous_statements.push(index);
+                            break;
+                        }
+                    }
 
+                    let mut open_count = 0;
+                    let mut close_count = 0;
+
+                    let mut new_lines = content.lines();
+                    let mut _length = usize::MIN;
+                    for place in 1..new_lines.clone().count() {
+                        let line = new_lines.next().unwrap();
+
+                        if place < index {
+                            _length += line.len();
+                        }
+                    }
+
+                    let mut while_lines = Vec::new();
+                    while_lines.push(start_statement);
+                    for line in lines.clone() {
+                        while_lines.push(line);
+                    }
+
+                    let mut while_statement = "".to_string();
+                    for while_line in while_lines {
+                        if !while_line.is_empty() {
+                            line = lines.next().unwrap();
+                            while_statement.push_str(while_line);
+                            while_statement.push_str("\n");
+                            open_count += while_line.matches("{").count();
+                            close_count += while_line.matches("}").count();
+
+                            if open_count == close_count && open_count != 0 { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
+                        }
+                    }
+                    if while_statement.trim().chars().last() != Some('}') {
+                        while_statement.push_str("}");
+                    }
+                    self.compile_while(while_statement);
+                }
+                if first_word == "if"
+                {
+                    let mut start_statement = "";
+                    let mut lines_clone = lines.clone();
+                    for index_clone in 1..lines_clone.clone().count() {
+                        let line_clone = lines_clone.next().unwrap();
+                        if line_clone.contains("if") && !previous_statements.contains(&index_clone) {
+                            start_statement = line_clone;
+                            previous_statements.push(index_clone);
+                            break;
+                        }
+                    }
+
+                    let mut new_lines = content.lines();
+                    let mut _length = usize::MIN;
+                    for place in 1..new_lines.clone().count() {
+                        let line = new_lines.next().unwrap();
+
+                        if place < index {
+                            _length += line.len();
+                        }
+                    }
+
+                    let mut if_lines = Vec::new();
+                    if_lines.push(start_statement);
+                    for line in lines.clone() {
+                        if_lines.push(line);
+                    }
+
+                    //for line in if_lines.clone(){println!("{}",line)}
+
+                    println!("start of if statement: {}",start_statement);
+                    let mut if_statement = "".to_string();
+
+                    let mut open_count = 0;
+                    let mut close_count = 0;
+                    let mut if_line = if_lines.get(0).unwrap();
+                    for index in 1..if_lines.clone().len() - 1 {
+                        if !if_line.is_empty() {
+                            line = lines.next().unwrap();
+                            if_statement.push_str(if_line);
+                            if_statement.push_str("\n");
+                            open_count += if_line.matches("{").count();
+                            close_count += if_line.matches("}").count();
+
+                            println!("if: \"{}\" vs \"{}\"", line, if_line);
+                            if_line = if_lines.get(index).unwrap();
+                            line = if_line;
+                            if open_count == close_count && open_count != 0 && !if_line.contains("else") { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
+                        }
+                    }
+
+                    self.compile_if(if_statement);
+                }
+                temp = line.trim().split_whitespace().nth(0);
+                match temp {
+                    None => {}
+                    Some(value) => { first_word = value; }
+                }
+                if first_word == "let"
+                {
+                    //println!("\nlet statement: {:?}",line);
+
+                    self.compile_let(line.trim().to_string());
+                }
+                if first_word == "do"
+                {
+                    //println!("\ndo statement: {:?}",line);
+                    self.compile_do(line.trim().to_string());
+                }
+
+                if line.contains("return")
+                {
+                    self.compile_return(line.trim().to_string());
+                }
+                first_word = "";
+            }
+        }
 
         self.output_file.close_tag("statements".to_string());
     }
 
     /// Compiles a let statement.
     fn compile_let(&mut self, content: String) {
-        println!("\nlet: {:?}",content);
+        //println!("\nlet: {:?}",content);
         self.output_file.open_tag("letStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "let".to_string());
@@ -504,29 +539,51 @@ impl CompilationEngine {
 
     /// Compiles an if statement, possible with a trailing else clause.
     fn compile_if(&mut self, content: String) {
-        println!("\nIf: {:?}",content);
         self.output_file.open_tag("ifStatement".to_string());
+        //println!("\n\n{}",content);
+        if let Some(value) = content.find("else") {
+            //println!("GOTEEEM");
+            self.output_file.write("keyword".to_string(), "if".to_string());
 
-        self.output_file.write("keyword".to_string(), "if".to_string());
+            self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.output_file.write("symbol".to_string(), "(".to_string());
+            self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
 
-        self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+            self.output_file.write("symbol".to_string(), ")".to_string());
 
-        self.output_file.write("symbol".to_string(), ")".to_string());
+            self.output_file.write("symbol".to_string(), "{".to_string());
 
-        self.output_file.write("symbol".to_string(), "{".to_string());
+            self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
 
-        self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().to_string());
+            self.output_file.write("symbol".to_string(), "}".to_string());
+            self.output_file.write("keyword".to_string(), "else".to_string());
+            self.output_file.write("symbol".to_string(), "{".to_string());
 
-        self.output_file.write("symbol".to_string(), "}".to_string());
+            self.compile_statements(content.get(value + 1..content.rfind("}").unwrap()).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), "}".to_string());
+        } else {
+            self.output_file.write("keyword".to_string(), "if".to_string());
+
+            self.output_file.write("symbol".to_string(), "(".to_string());
+
+            self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), ")".to_string());
+
+            self.output_file.write("symbol".to_string(), "{".to_string());
+
+            self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().to_string());
+
+            self.output_file.write("symbol".to_string(), "}".to_string());
+        }
 
         self.output_file.close_tag("ifStatement".to_string());
     }
 
     /// Compiles a while statement.
     fn compile_while(&mut self, content: String) {
-        println!("\nWhile: {:?}",content);
+        //println!("\nWhile: {:?}",content);
         self.output_file.open_tag("whileStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "while".to_string());
@@ -548,7 +605,7 @@ impl CompilationEngine {
 
     /// Compiles a do statement.
     fn compile_do(&mut self, content: String) {
-        println!("\nDo: {:?}",content);
+        //println!("\nDo: {:?}",content);
         self.output_file.open_tag("doStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "do".to_string());
@@ -580,12 +637,11 @@ impl CompilationEngine {
 
     /// Compiles a return statement.
     fn compile_return(&mut self, content: String) {
-        println!("\nReturn: {:?}", content);
         self.output_file.open_tag("returnStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "return".to_string());
 
-        if content != "return;" {
+        if !content.contains("return;") {
             self.compile_expression(content.get(content.trim().find(" ").unwrap()..content.find(";").unwrap()).unwrap().trim().to_string());
         }
 
@@ -640,13 +696,16 @@ impl CompilationEngine {
                     tmp = rest_of_exp.trim().find(op);
                     match tmp {
                         None => {}
-                        Some(_) => { rest_of_exp_has_op = true; break;}
+                        Some(_) => {
+                            rest_of_exp_has_op = true;
+                            break;
+                        }
                     }
                 }
 
-                if rest_of_exp_has_op{
+                if rest_of_exp_has_op {
                     self.compile_expression(rest_of_exp.to_string());
-                } else{
+                } else {
                     self.compile_term(rest_of_exp.trim().to_string());
                 }
             }
@@ -665,7 +724,8 @@ impl CompilationEngine {
         for keyword in KEYWORD_CONSTANT {
             if term == keyword.to_string() {
                 self.output_file.write("keyword".to_string(), term.to_string());
-                break;
+                self.output_file.close_tag("term".to_string());
+                return;
             }
         }
         if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {

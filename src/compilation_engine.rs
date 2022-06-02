@@ -32,21 +32,19 @@ impl CompilationEngine {
     ///
     /// * The newly created CompilationEngine object
     pub fn new(path: &String) -> Self {
-        let remove_comments: Regex = Regex::new(r#"/\*\*.*\*/|//.*\n|/\*.*\*/\n\*/"#).unwrap();
+        let remove_comments: Regex = Regex::new(r#"//.*\n|/\*.*\*/"#).unwrap();
         let file_contents = fs::read_to_string(path).unwrap().as_str().to_owned();
 
         let code = remove_comments.replace_all(&file_contents, "\n").to_string();
 
-        let lines = code.split("\n");
-        for line in lines {
-            if line.starts_with("//") { // | line.contains("//"){
-                let _ = code.replace(line, "");
-            } else if line.starts_with("/*") | line.starts_with("/**") {
-                while !line.contains("*/") {
-                    let _ = code.replace(line, "");
-                }
-            }
-        }
+        // TO DO:
+        // Add the code to remove the block of comments from the code
+        // Example:
+        // /**
+        // comment #1
+        // comment #2
+        // comment #3
+        // */
 
         CompilationEngine {
             output_file: XmlWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
@@ -332,8 +330,6 @@ impl CompilationEngine {
             self.output_file.write("symbol".to_string(), ";".to_string());
         }
 
-        //This is possible and should be handled: "var int i, sum;"
-
         self.output_file.close_tag("varDec".to_string());
     }
 
@@ -346,12 +342,14 @@ impl CompilationEngine {
         let temp = content.clone();
         let mut lines = temp.lines();
         let mut first_word = "";
-        let mut temp;
+        let mut tmp;
+        let mut advance = true;
+        let mut current_line = "";
         if lines.clone().count() == 1 {
             let line = content.to_string();
 
-            temp = line.trim().split_whitespace().nth(0);
-            match temp {
+            tmp = line.trim().split_whitespace().nth(0);
+            match tmp {
                 None => {}
                 Some(value) => { first_word = value; }
             }
@@ -366,40 +364,34 @@ impl CompilationEngine {
                 self.compile_return(line.trim().to_string());
             }
         } else {
-            for index in 1..lines.clone().count() {
-                let mut line = "";
-                let tmp = lines.next();
-                if tmp.is_some() {
-                    line = tmp.unwrap().trim();
+            for _index in 1..lines.clone().count() {
+                if advance {
+                    let tmp = lines.next();
+                    if tmp.is_some() {
+                        current_line = tmp.unwrap().trim();
+                    }
                 }
-                temp = line.trim().split_whitespace().nth(0);
-                match temp {
+                advance = true;
+                tmp = current_line.trim().split_whitespace().nth(0);
+                match tmp {
                     None => {}
                     Some(value) => { first_word = value; }
                 }
                 if first_word == "while"
                 {
                     let mut start_statement = "";
-                    for line in content.lines() {
-                        if line.contains("while") && !previous_statements.contains(&index) {
-                            start_statement = line;
-                            previous_statements.push(index);
+                    let mut lines_clone = temp.lines();
+                    for index_clone in 1..lines_clone.clone().count() {
+                        let line_clone = lines_clone.next().unwrap();
+                        if line_clone.contains("while") && !previous_statements.contains(&index_clone) {
+                            start_statement = line_clone;
+                            previous_statements.push(index_clone);
                             break;
                         }
                     }
 
                     let mut open_count = 0;
                     let mut close_count = 0;
-
-                    let mut new_lines = content.lines();
-                    let mut _length = usize::MIN;
-                    for place in 1..new_lines.clone().count() {
-                        let line = new_lines.next().unwrap();
-
-                        if place < index {
-                            _length += line.len();
-                        }
-                    }
 
                     let mut while_lines = Vec::new();
                     while_lines.push(start_statement);
@@ -410,13 +402,19 @@ impl CompilationEngine {
                     let mut while_statement = "".to_string();
                     for while_line in while_lines {
                         if !while_line.is_empty() {
-                            line = lines.next().unwrap();
+                            current_line = lines.next().unwrap();
                             while_statement.push_str(while_line);
                             while_statement.push_str("\n");
                             open_count += while_line.matches("{").count();
                             close_count += while_line.matches("}").count();
 
-                            if open_count == close_count && open_count != 0 { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
+                            if open_count == close_count && open_count != 0 {
+                                advance = false;
+                                break;
+                            } else if open_count < close_count {
+                                println!("{}", while_statement);
+                                panic!("ERROR IN THE JACK CODE!")
+                            }
                         }
                     }
                     if while_statement.trim().chars().last() != Some('}') {
@@ -426,8 +424,8 @@ impl CompilationEngine {
                 }
                 if first_word == "if"
                 {
-                    let mut start_statement = "";
-                    let mut lines_clone = lines.clone();
+                    let mut start_statement = current_line;
+                    let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
                         let line_clone = lines_clone.next().unwrap();
                         if line_clone.contains("if") && !previous_statements.contains(&index_clone) {
@@ -437,25 +435,13 @@ impl CompilationEngine {
                         }
                     }
 
-                    let mut new_lines = content.lines();
-                    let mut _length = usize::MIN;
-                    for place in 1..new_lines.clone().count() {
-                        let line = new_lines.next().unwrap();
-
-                        if place < index {
-                            _length += line.len();
-                        }
-                    }
-
                     let mut if_lines = Vec::new();
                     if_lines.push(start_statement);
                     for line in lines.clone() {
                         if_lines.push(line);
                     }
 
-                    //for line in if_lines.clone(){println!("{}",line)}
-
-                    println!("start of if statement: {}",start_statement);
+                    //println!("start of if statement: {}",start_statement);
                     let mut if_statement = "".to_string();
 
                     let mut open_count = 0;
@@ -463,41 +449,46 @@ impl CompilationEngine {
                     let mut if_line = if_lines.get(0).unwrap();
                     for index in 1..if_lines.clone().len() - 1 {
                         if !if_line.is_empty() {
-                            line = lines.next().unwrap();
+                            current_line = lines.next().unwrap();
                             if_statement.push_str(if_line);
                             if_statement.push_str("\n");
                             open_count += if_line.matches("{").count();
                             close_count += if_line.matches("}").count();
 
-                            println!("if: \"{}\" vs \"{}\"", line, if_line);
+                            //println!("if: \"{}\" vs \"{}\"", current_line, if_line);
                             if_line = if_lines.get(index).unwrap();
-                            line = if_line;
-                            if open_count == close_count && open_count != 0 && !if_line.contains("else") { break; } else if open_count < close_count { panic!("ERROR IN THE JACK CODE!") }
+
+                            if open_count == close_count && open_count != 0 && !if_line.contains("else") {
+                                advance = false;
+                                break;
+                            } else if open_count < close_count {
+                                panic!("ERROR IN THE JACK CODE!")
+                            }
                         }
                     }
 
                     self.compile_if(if_statement);
                 }
-                temp = line.trim().split_whitespace().nth(0);
-                match temp {
+                tmp = current_line.trim().split_whitespace().nth(0);
+                match tmp {
                     None => {}
                     Some(value) => { first_word = value; }
                 }
                 if first_word == "let"
                 {
-                    //println!("\nlet statement: {:?}",line);
-
-                    self.compile_let(line.trim().to_string());
+                    self.compile_let(current_line.trim().to_string());
+                    advance = true;
                 }
                 if first_word == "do"
                 {
-                    //println!("\ndo statement: {:?}",line);
-                    self.compile_do(line.trim().to_string());
+                    self.compile_do(current_line.trim().to_string());
+                    advance = true;
                 }
 
-                if line.contains("return")
+                if current_line.contains("return")
                 {
-                    self.compile_return(line.trim().to_string());
+                    self.compile_return(current_line.trim().to_string());
+                    advance = true;
                 }
                 first_word = "";
             }
@@ -540,14 +531,24 @@ impl CompilationEngine {
     /// Compiles an if statement, possible with a trailing else clause.
     fn compile_if(&mut self, content: String) {
         self.output_file.open_tag("ifStatement".to_string());
-        //println!("\n\n{}",content);
+
+        //println!("if statement: {}",content);
+        let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
+
+        //println!("if statement: {}",temp);
+
+        //println!("location of ): {:?}",temp.get(0..temp.rfind(")").unwrap()).unwrap());
+
+        let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
+
+        //println!("head of if statement: {}",line);
+
         if let Some(value) = content.find("else") {
-            //println!("GOTEEEM");
             self.output_file.write("keyword".to_string(), "if".to_string());
 
             self.output_file.write("symbol".to_string(), "(".to_string());
 
-            self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+            self.compile_expression(expression.to_string());
 
             self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -556,7 +557,9 @@ impl CompilationEngine {
             self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
 
             self.output_file.write("symbol".to_string(), "}".to_string());
+
             self.output_file.write("keyword".to_string(), "else".to_string());
+
             self.output_file.write("symbol".to_string(), "{".to_string());
 
             self.compile_statements(content.get(value + 1..content.rfind("}").unwrap()).unwrap().to_string());
@@ -567,7 +570,7 @@ impl CompilationEngine {
 
             self.output_file.write("symbol".to_string(), "(".to_string());
 
-            self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+            self.compile_expression(expression.to_string());
 
             self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -583,14 +586,17 @@ impl CompilationEngine {
 
     /// Compiles a while statement.
     fn compile_while(&mut self, content: String) {
-        //println!("\nWhile: {:?}",content);
         self.output_file.open_tag("whileStatement".to_string());
+
+        let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
+
+        let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
 
         self.output_file.write("keyword".to_string(), "while".to_string());
 
         self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.compile_expression(content.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap().to_string());
+        self.compile_expression(expression.to_string());
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -605,7 +611,6 @@ impl CompilationEngine {
 
     /// Compiles a do statement.
     fn compile_do(&mut self, content: String) {
-        //println!("\nDo: {:?}",content);
         self.output_file.open_tag("doStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "do".to_string());
@@ -651,7 +656,9 @@ impl CompilationEngine {
     }
 
     /// Compiles an expression.
-    fn compile_expression(&mut self, expression: String) {
+    pub fn compile_expression(&mut self, expression: String) {
+
+        //println!("{}",expression);
         self.output_file.open_tag("expression".to_string());
 
         let mut index = usize::MAX;
@@ -661,28 +668,78 @@ impl CompilationEngine {
             tmp = expression.trim().find(op);
             match tmp {
                 None => {}
-                Some(value) => { index = value; }
-            }
-            if index != usize::MAX {
-                arr.push(index);
+                Some(value) => {
+                    if value != usize::MAX {
+                        arr.push(value);
+                    }
+                }
             }
         }
         index = usize::MAX;
 
         for val in arr {
+            let start = expression.get(0..val).unwrap().trim();
+            let end = expression.get(val + 2..expression.len()).unwrap().trim();
+
+            let start_open = start.find("(");
+            let start_end = start.rfind(")");
+            let end_open = end.find("(");
+            let ene_end = end.rfind(")");
+            if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && ene_end == Some(end.len() - 1)) {
+                index = start_end.unwrap() + 1;
+                let mut s = expression.get(index..index + 1);
+                while s == Some(" ") && s.is_some() {
+                    index = index + 1;
+                    s = expression.get(index..index + 1);
+                }
+                break;
+            }
             if val < index {
                 index = val;
             }
         }
-        if index == usize::MAX {
+        let reg = Regex::new(r"(?m)\(.*\) ([+\-*/&|<>=]) \(.*\)|\(.*\)([+\-*/&|<>=])\(.*\)").unwrap();
+        if reg.is_match(expression.trim()) {
+            for op in OP {
+                let checks = expression.split(op);
+
+                if checks.clone().count() > 1 {
+                    for item in checks.clone() {
+                        let exp = item.trim();
+                        if exp.find("(") == Some(0) && exp.rfind(")") == Some(exp.len() - 1) {
+                            self.compile_term(item.trim().to_string());
+                            if item != checks.clone().last().unwrap() {
+                                match op {
+                                    "<" => self.output_file.write("symbol".to_string(), "&lt;".to_string()),
+                                    ">" => self.output_file.write("symbol".to_string(), "&gt;".to_string()),
+                                    "&" => self.output_file.write("symbol".to_string(), "&amp;".to_string()),
+                                    &_ => self.output_file.write("symbol".to_string(), op.trim().to_string())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if index == usize::MAX {
+            self.compile_term(expression.trim().to_string());
+        } else if index == 0 {
+            self.compile_term(expression.trim().to_string());
+        } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "~" {
             self.compile_term(expression.trim().to_string());
         } else {
-            if expression.trim().get(0..index).unwrap().find("(").is_some() && expression.get(0..index).unwrap().find("(").unwrap() == 0 {
+            if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
+                println!("expression: {:?}", expression);
                 self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
             } else {
                 self.compile_term(expression.get(0..index).unwrap().trim().to_string());
 
-                let symbol = expression.get(index..index + 1).unwrap().trim();
+                let mut symbol = expression.get(index..index + 1).unwrap().trim();
+                if symbol == "" {
+                    symbol = expression.get(index + 1..index + 2).unwrap().trim();
+                    if symbol == "" {
+                        symbol = expression.get(index + 2..index + 3).unwrap().trim();
+                    }
+                }
 
                 match symbol {
                     "<" => self.output_file.write("symbol".to_string(), "&lt;".to_string()),
@@ -704,7 +761,7 @@ impl CompilationEngine {
                 }
 
                 if rest_of_exp_has_op {
-                    self.compile_expression(rest_of_exp.to_string());
+                    self.compile_term(rest_of_exp.to_string());
                 } else {
                     self.compile_term(rest_of_exp.trim().to_string());
                 }
@@ -728,15 +785,22 @@ impl CompilationEngine {
                 return;
             }
         }
-        if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
+        let mut unary_op = false;
+        for op in UNARY_OP {
+            if term.find(op) == Some(0) { unary_op = true; }
+        }
+        if unary_op {
+            self.output_file.write("symbol".to_string(), term.get(0..1).unwrap().to_string());
+
+            self.compile_term(term.get(1..term.len()).unwrap().to_string())
+        } else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
             self.output_file.write("symbol".to_string(), "(".to_string());
             if term.find("-") == Some(1) {
-                self.output_file.write("symbol".to_string(), "-".to_string());
-                self.compile_term(term.get(2..term.len() - 1).unwrap().to_string())
+                self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             } else if term.find("~") == Some(1) {
-                self.output_file.write("symbol".to_string(), "~".to_string());
+                self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             } else {
-                self.compile_expression(term.get(term.find("(").unwrap() + 1..term.rfind(")").unwrap()).unwrap().to_string());
+                self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             }
             self.output_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("\"") == Some(0) && term.rfind("\"") == Some(term.len() - 1) {

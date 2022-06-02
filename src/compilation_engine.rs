@@ -631,7 +631,7 @@ impl CompilationEngine {
 
         self.output_file.write("symbol".to_string(), "(".to_string());
 
-        self.compile_expression_list(do_content.get(do_content.find("(").unwrap() + 1..do_content.find(")").unwrap()).unwrap().to_string());
+        self.compile_expression_list(do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap().to_string());
 
         self.output_file.write("symbol".to_string(), ")".to_string());
 
@@ -679,15 +679,16 @@ impl CompilationEngine {
 
         for val in arr {
             let start = expression.get(0..val).unwrap().trim();
-            let end = expression.get(val + 2..expression.len()).unwrap().trim();
+            let end = expression.get(val + 1..expression.len()).unwrap().trim();
 
             let start_open = start.find("(");
             let start_end = start.rfind(")");
             let end_open = end.find("(");
-            let ene_end = end.rfind(")");
-            if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && ene_end == Some(end.len() - 1)) {
-                index = start_end.unwrap() + 1;
-                let mut s = expression.get(index..index + 1);
+            let end_end = end.rfind(")");
+            if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && end_end == Some(end.len() - 1)) {
+                println!("index = {}",val);
+                index = if start_end.is_some() {start_end.unwrap()+ 1} else if  end_open.is_some() {val} else {0} ;
+                let mut s = expression.get(val..index + 1);
                 while s == Some(" ") && s.is_some() {
                     index = index + 1;
                     s = expression.get(index..index + 1);
@@ -715,6 +716,9 @@ impl CompilationEngine {
                                     "&" => self.output_file.write("symbol".to_string(), "&amp;".to_string()),
                                     &_ => self.output_file.write("symbol".to_string(), op.trim().to_string())
                                 }
+                            } else {
+                                self.output_file.close_tag("expression".to_string());
+                                return;
                             }
                         }
                     }
@@ -724,7 +728,7 @@ impl CompilationEngine {
             self.compile_term(expression.trim().to_string());
         } else if index == 0 {
             self.compile_term(expression.trim().to_string());
-        } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "~" {
+        } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "-" {
             self.compile_term(expression.trim().to_string());
         } else {
             if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
@@ -842,7 +846,7 @@ impl CompilationEngine {
             let mut current = 0;
             let expressions = content.split(",");
             for expression in expressions {
-                self.compile_expression(expression.to_string());
+                self.compile_expression(expression.trim().to_string());
                 if current < commas {
                     current += 1;
 

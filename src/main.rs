@@ -15,12 +15,12 @@ mod compilation_engine;
 
 fn main() {
 
-    //let args: Vec<String> = env::args().collect();
-    //println!("{}", args[1]);
+    let args: Vec<String> = env::args().collect();
+    println!("{}", args[1]);
 
     let mut file_path;
-    //let temp = args[1].to_string();
-    let temp ="/home/shoham/nand2tetris/projects/10/Square/Square.jack".to_string();
+    let temp = args[1].to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/10/Square/Main.jack".to_string();
     if !temp.contains(".jack"){file_path = search_jack_files(temp.as_str());} else{file_path= Vec::new(); file_path.push(temp.to_string())}
     for file in file_path {
         println!("file : {}",file);

@@ -16,7 +16,6 @@ mod compilation_engine;
 fn main() {
 
     let args: Vec<String> = env::args().collect();
-    println!("{}", args[1]);
 
     let mut file_path;
     let temp = args[1].to_string();
@@ -27,8 +26,6 @@ fn main() {
         tokenizer(file.to_string());
         let mut compilation_engine: CompilationEngine = CompilationEngine::new(&file);
         compilation_engine.compile();
-
-        //compilation_engine.compile_expression("i | j".to_string());
     }
 }
 

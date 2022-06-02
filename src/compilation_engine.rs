@@ -412,7 +412,6 @@ impl CompilationEngine {
                                 advance = false;
                                 break;
                             } else if open_count < close_count {
-                                println!("{}", while_statement);
                                 panic!("ERROR IN THE JACK CODE!")
                             }
                         }
@@ -441,7 +440,6 @@ impl CompilationEngine {
                         if_lines.push(line);
                     }
 
-                    //println!("start of if statement: {}",start_statement);
                     let mut if_statement = "".to_string();
 
                     let mut open_count = 0;
@@ -455,7 +453,6 @@ impl CompilationEngine {
                             open_count += if_line.matches("{").count();
                             close_count += if_line.matches("}").count();
 
-                            //println!("if: \"{}\" vs \"{}\"", current_line, if_line);
                             if_line = if_lines.get(index).unwrap();
 
                             if open_count == close_count && open_count != 0 && !if_line.contains("else") {
@@ -499,7 +496,6 @@ impl CompilationEngine {
 
     /// Compiles a let statement.
     fn compile_let(&mut self, content: String) {
-        //println!("\nlet: {:?}",content);
         self.output_file.open_tag("letStatement".to_string());
 
         self.output_file.write("keyword".to_string(), "let".to_string());
@@ -532,16 +528,12 @@ impl CompilationEngine {
     fn compile_if(&mut self, content: String) {
         self.output_file.open_tag("ifStatement".to_string());
 
-        //println!("if statement: {}",content);
         let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
 
-        //println!("if statement: {}",temp);
 
-        //println!("location of ): {:?}",temp.get(0..temp.rfind(")").unwrap()).unwrap());
 
         let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
 
-        //println!("head of if statement: {}",line);
 
         if let Some(value) = content.find("else") {
             self.output_file.write("keyword".to_string(), "if".to_string());
@@ -658,7 +650,6 @@ impl CompilationEngine {
     /// Compiles an expression.
     pub fn compile_expression(&mut self, expression: String) {
 
-        //println!("{}",expression);
         self.output_file.open_tag("expression".to_string());
 
         let mut index = usize::MAX;
@@ -686,7 +677,6 @@ impl CompilationEngine {
             let end_open = end.find("(");
             let end_end = end.rfind(")");
             if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && end_end == Some(end.len() - 1)) {
-                println!("index = {}",val);
                 index = if start_end.is_some() {start_end.unwrap()+ 1} else if  end_open.is_some() {val} else {0} ;
                 let mut s = expression.get(val..index + 1);
                 while s == Some(" ") && s.is_some() {
@@ -732,7 +722,6 @@ impl CompilationEngine {
             self.compile_term(expression.trim().to_string());
         } else {
             if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
-                println!("expression: {:?}", expression);
                 self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
             } else {
                 self.compile_term(expression.get(0..index).unwrap().trim().to_string());

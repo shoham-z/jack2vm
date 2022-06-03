@@ -9,6 +9,7 @@ use crate::utility::{CLASS_FUNC_TYPES, CLASS_VAR_TYPES, DATA_TYPES, KEYWORD_CONS
 use crate::vm_writer::VMWriter;
 
 pub struct CompilationEngine {
+    class_name: String,
     xml_file: XmlWriter,
     vm_file: VMWriter,
     input_file: String,
@@ -38,6 +39,7 @@ impl CompilationEngine {
         let code = remove_comments.replace_all(&file_contents, "\n").to_string();
 
         CompilationEngine {
+            class_name: code.split_whitespace().nth(1).unwrap().to_string(),
             xml_file: XmlWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
             vm_file: VMWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
             input_file: code,
@@ -114,7 +116,7 @@ impl CompilationEngine {
 
     /// Compiles a static variable declaration or field declaration.
     fn compile_class_var_dec(&mut self, line: String) {
-        let mut words = line.split_whitespace();
+        let mut words = line.trim().get(0..line.trim().len()-1).unwrap().split_whitespace();
 
         //self.output_file.open_tag("classVarDec".to_string());
         //self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
@@ -142,6 +144,12 @@ impl CompilationEngine {
             while let Some(_value) = comma {
                 //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string());
                 //self.output_file.write("symbol".to_string(), ",".to_string());
+                if var_name.find(",") == Some(0) {
+                    var_name = var_name.get(1..var_name.len()).unwrap();
+                }
+                else if var_name.find(",") == Some(var_name.len()-1) {
+                    var_name = var_name.get(0..var_name.len()-1).unwrap();
+                }
 
                 self.class_symbol_table.define(var_name.to_string(),data_type.to_string(), kind);
 
@@ -154,7 +162,7 @@ impl CompilationEngine {
             //self.output_file.write("symbol".to_string(), ";".to_string());
         } else {
             let var_name = words.nth(0).unwrap();
-            self.class_symbol_table.define(var_name.get(0..var_name.len() - 1).unwrap().to_string(),data_type.to_string(), kind);
+            self.class_symbol_table.define(var_name.get(0..var_name.len()).unwrap().to_string(),data_type.to_string(), kind);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
             //self.output_file.write("symbol".to_string(), ";".to_string());
@@ -184,36 +192,38 @@ impl CompilationEngine {
 
     /// Compiles a complete method, function or constructor.
     pub fn compile_subroutine_dec(&mut self, content: String) {
-        self.xml_file.open_tag("subroutineDec".to_string());
+        //self.xml_file.open_tag("subroutineDec".to_string());
 
         let func_dec = content.get(0..content.find("{").unwrap()).unwrap();
 
         let mut words = func_dec.split_whitespace();
 
-        self.xml_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
+        //self.xml_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
 
         let data_type = words.nth(0).unwrap();//subroutine return type
         if DATA_TYPES.contains(&data_type) {
-            self.xml_file.write("keyword".to_string(), data_type.to_string());
+            //self.xml_file.write("keyword".to_string(), data_type.to_string());
         } else {
-            self.xml_file.write("identifier".to_string(), data_type.to_string());
+            //self.xml_file.write("identifier".to_string(), data_type.to_string());
         }
 
-        self.xml_file.write("identifier".to_string(), words.nth(0).unwrap().split("(").nth(0).unwrap().to_string());//subroutine name
+        //self.xml_file.write("identifier".to_string(), words.nth(0).unwrap().split("(").nth(0).unwrap().to_string());//subroutine name
 
-        self.xml_file.write("symbol".to_string(), "(".to_string());
+        //self.xml_file.write("symbol".to_string(), "(".to_string());
 
         let param_list = func_dec.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap();
 
+        self.subroutine_symbol_table.define("this".to_string(), self.class_name.to_string(), Kind::ARG);
+
         self.compile_parameter_list(param_list.to_string());
 
-        self.xml_file.write("symbol".to_string(), ")".to_string());
+        //self.xml_file.write("symbol".to_string(), ")".to_string());
 
         let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
 
         self.compile_subroutine_body(func_body.to_string());
 
-        self.xml_file.close_tag("subroutineDec".to_string());
+        //self.xml_file.close_tag("subroutineDec".to_string());
     }
 
     /// Compiles a (possibly empty) parameter list.
@@ -246,7 +256,7 @@ impl CompilationEngine {
                     let data_type = var_split.next().unwrap().to_string();
                     let var_name = var_split.next().unwrap().to_string();
 
-                    self.class_symbol_table.define(var_name, data_type, Kind::ARG);
+                    self.subroutine_symbol_table.define(var_name, data_type, Kind::ARG);
 
                     //self.output_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
                     //self.output_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
@@ -261,7 +271,7 @@ impl CompilationEngine {
                     let data_type = var_split.next().unwrap().to_string();
                     let var_name = var_split.next().unwrap().to_string();
 
-                    self.class_symbol_table.define(var_name, data_type, Kind::ARG);
+                    self.subroutine_symbol_table.define(var_name, data_type, Kind::ARG);
 
                     //self.output_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
                     //self.output_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
@@ -326,18 +336,18 @@ impl CompilationEngine {
                 //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string());
                 //self.output_file.write("symbol".to_string(), ",".to_string());
 
-                self.class_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
+                self.subroutine_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
                 var_name = words.next().unwrap();
 
                 comma = var_name.find(",");
             }
-            self.class_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
+            self.subroutine_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(';').unwrap()).unwrap().to_string());
             //self.output_file.write("symbol".to_string(), ";".to_string());
         } else {
             let var_name = words.nth(0).unwrap();
-            self.class_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
+            self.subroutine_symbol_table.define(var_name.get(0..var_name.find(',').unwrap()).unwrap().to_string(), data_type.to_string(), Kind::VAR);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
 

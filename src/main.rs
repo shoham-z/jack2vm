@@ -1,5 +1,4 @@
 extern crate lazy_static;
-// include the latest version of the regex crate in your Cargo.toml
 extern crate regex;
 extern crate core;
 
@@ -12,14 +11,17 @@ use crate::tokenizer::tokenizer;
 mod xmlwriter;
 mod tokenizer;
 mod compilation_engine;
+mod vm_writer;
+mod symbol_table;
+mod utility;
 
 fn main() {
 
-    let args: Vec<String> = env::args().collect();
+    //let args: Vec<String> = env::args().collect();
 
     let mut file_path;
-    let temp = args[1].to_string();
-    //let temp ="/home/shoham/nand2tetris/projects/10/Square/Main.jack".to_string();
+    //let temp = args[1].to_string();
+    let temp ="/home/shoham/nand2tetris/projects/10/Square/Square.jack".to_string();
     if !temp.contains(".jack"){file_path = search_jack_files(temp.as_str());} else{file_path= Vec::new(); file_path.push(temp.to_string())}
     for file in file_path {
         println!("file : {}",file);

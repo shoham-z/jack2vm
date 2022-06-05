@@ -1,20 +1,21 @@
+use std::any::Any;
 use std::env::var;
 use std::fs;
 
 use regex::Regex;
-use crate::symbol_table::SymbolTable;
 
-use crate::xmlwriter::XmlWriter;
+use crate::symbol_table::SymbolTable;
 use crate::utility::{CLASS_FUNC_TYPES, CLASS_VAR_TYPES, DATA_TYPES, KEYWORD_CONSTANT, Kind, OP, UNARY_OP};
 use crate::vm_writer::VMWriter;
+use crate::xmlwriter::XmlWriter;
 
 pub struct CompilationEngine {
     class_name: String,
     xml_file: XmlWriter,
-    vm_file: VMWriter,
+    vm_writer: VMWriter,
     input_file: String,
-    class_symbol_table : SymbolTable,
-    subroutine_symbol_table : SymbolTable
+    class_symbol_table: SymbolTable,
+    subroutine_symbol_table: SymbolTable,
 }
 
 impl CompilationEngine {
@@ -41,10 +42,10 @@ impl CompilationEngine {
         CompilationEngine {
             class_name: code.split_whitespace().nth(1).unwrap().to_string(),
             xml_file: XmlWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
-            vm_file: VMWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
+            vm_writer: VMWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
             input_file: code,
             class_symbol_table: SymbolTable::new(),
-            subroutine_symbol_table: SymbolTable::new()
+            subroutine_symbol_table: SymbolTable::new(),
         }
     }
 
@@ -57,7 +58,7 @@ impl CompilationEngine {
         let count = lines.count();
         let mut lines = code.lines();
 
-        self.class_symbol_table  = SymbolTable::new();
+        self.class_symbol_table = SymbolTable::new();
 
         for _index in 1..count {
             let line = lines.nth(0).unwrap();
@@ -116,15 +117,15 @@ impl CompilationEngine {
 
     /// Compiles a static variable declaration or field declaration.
     fn compile_class_var_dec(&mut self, line: String) {
-        let mut words = line.trim().get(0..line.trim().len()-1).unwrap().split_whitespace();
+        let mut words = line.trim().get(0..line.trim().len() - 1).unwrap().split_whitespace();
 
         //self.output_file.open_tag("classVarDec".to_string());
         //self.output_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());
 
-        let kind =  match words.nth(0).unwrap() {
+        let kind = match words.nth(0).unwrap() {
             "field" => Kind::FIELD,
             "static" => Kind::STATIC,
-            &_ => {Kind::NONE}
+            &_ => { Kind::NONE }
         };
         let data_type = words.nth(0).unwrap();
         /*if DATA_TYPES.contains(&data_type) {
@@ -146,23 +147,22 @@ impl CompilationEngine {
                 //self.output_file.write("symbol".to_string(), ",".to_string());
                 if var_name.find(",") == Some(0) {
                     var_name = var_name.get(1..var_name.len()).unwrap();
-                }
-                else if var_name.find(",") == Some(var_name.len()-1) {
-                    var_name = var_name.get(0..var_name.len()-1).unwrap();
+                } else if var_name.find(",") == Some(var_name.len() - 1) {
+                    var_name = var_name.get(0..var_name.len() - 1).unwrap();
                 }
 
-                self.class_symbol_table.define(var_name.to_string(),data_type.to_string(), kind);
+                self.class_symbol_table.define(var_name.to_string(), data_type.to_string(), kind);
 
                 var_name = words.next().unwrap();
 
                 comma = var_name.find(",");
             }
-            self.class_symbol_table.define(var_name.to_string(),data_type.to_string(), kind);
+            self.class_symbol_table.define(var_name.to_string(), data_type.to_string(), kind);
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(';').unwrap()).unwrap().to_string());
             //self.output_file.write("symbol".to_string(), ";".to_string());
         } else {
             let var_name = words.nth(0).unwrap();
-            self.class_symbol_table.define(var_name.get(0..var_name.len()).unwrap().to_string(),data_type.to_string(), kind);
+            self.class_symbol_table.define(var_name.get(0..var_name.len()).unwrap().to_string(), data_type.to_string(), kind);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
             //self.output_file.write("symbol".to_string(), ";".to_string());
@@ -180,7 +180,7 @@ impl CompilationEngine {
                 } else if next == "," {
                     //self.output_file.write("symbol".to_string(), next.to_string());
                 } else {
-                    self.class_symbol_table.define(words.next().unwrap().to_string(),data_type.to_string(), kind);
+                    self.class_symbol_table.define(words.next().unwrap().to_string(), data_type.to_string(), kind);
 
                     //self.output_file.write("identifier".to_string(), words.next().unwrap().to_string());
                 }
@@ -555,7 +555,6 @@ impl CompilationEngine {
         let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
 
 
-
         let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
 
 
@@ -673,7 +672,6 @@ impl CompilationEngine {
 
     /// Compiles an expression.
     pub fn compile_expression(&mut self, expression: String) {
-
         self.xml_file.open_tag("expression".to_string());
 
         let mut index = usize::MAX;
@@ -701,7 +699,7 @@ impl CompilationEngine {
             let end_open = end.find("(");
             let end_end = end.rfind(")");
             if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && end_end == Some(end.len() - 1)) {
-                index = if start_end.is_some() {start_end.unwrap()+ 1} else if  end_open.is_some() {val} else {0} ;
+                index = if start_end.is_some() { start_end.unwrap() + 1 } else if end_open.is_some() { val } else { 0 };
                 let mut s = expression.get(val..index + 1);
                 while s == Some(" ") && s.is_some() {
                     index = index + 1;
@@ -758,12 +756,7 @@ impl CompilationEngine {
                     }
                 }
 
-                match symbol {
-                    "<" => self.xml_file.write("symbol".to_string(), "&lt;".to_string()),
-                    ">" => self.xml_file.write("symbol".to_string(), "&gt;".to_string()),
-                    "&" => self.xml_file.write("symbol".to_string(), "&amp;".to_string()),
-                    &_ => self.xml_file.write("symbol".to_string(), symbol.trim().to_string())
-                }
+
                 let rest_of_exp = expression.get(index + 2..expression.len()).unwrap().trim();
                 let mut rest_of_exp_has_op = false;
                 for op in OP {
@@ -781,6 +774,13 @@ impl CompilationEngine {
                     self.compile_term(rest_of_exp.to_string());
                 } else {
                     self.compile_term(rest_of_exp.trim().to_string());
+                }
+
+                match symbol {
+                    "<" => self.xml_file.write("symbol".to_string(), "&lt;".to_string()),
+                    ">" => self.xml_file.write("symbol".to_string(), "&gt;".to_string()),
+                    "&" => self.xml_file.write("symbol".to_string(), "&amp;".to_string()),
+                    &_ => self.xml_file.write("symbol".to_string(), symbol.trim().to_string())
                 }
             }
         }
@@ -807,7 +807,12 @@ impl CompilationEngine {
             if term.find(op) == Some(0) { unary_op = true; }
         }
         if unary_op {
-            self.xml_file.write("symbol".to_string(), term.get(0..1).unwrap().to_string());
+            //self.xml_file.write("symbol".to_string(), term.get(0..1).unwrap().to_string());
+            if term.get(0..1).unwrap() == "-" {
+                self.vm_writer.write_arithmetic(9)
+            } else {
+                self.vm_writer.write_arithmetic(3);
+            }
 
             self.compile_term(term.get(1..term.len()).unwrap().to_string())
         } else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
@@ -826,6 +831,8 @@ impl CompilationEngine {
 
             self.xml_file.write("integerConstant".to_string(), term.to_string());
         } else if UNARY_OP.contains(&term.chars().next().unwrap().to_string().as_str()) {} else if term.find(".").is_some() {
+            // method call
+
             self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
 
             self.xml_file.write("symbol".to_string(), ".".to_string());
@@ -837,6 +844,8 @@ impl CompilationEngine {
 
             self.xml_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("[").is_some() {
+            // Array access
+
             self.xml_file.write("identifier".to_string(), term.get(0..term.find("[").unwrap()).unwrap().to_string());
 
             self.xml_file.write("symbol".to_string(), "[".to_string());
@@ -845,9 +854,17 @@ impl CompilationEngine {
 
             self.xml_file.write("symbol".to_string(), "]".to_string());
         } else {
-            self.xml_file.write("identifier".to_string(), term.to_string());
+            // var name
+
+            let mut kind = Kind::NONE;
+            let mut index = 0;
+            (kind, index) = self.get_kind_type(term);
+
+            self.vm_writer.write_push(kind, index);
+
+            //self.xml_file.write("identifier".to_string(), term.to_string());
         }
-        self.xml_file.close_tag("term".to_string());
+        //self.xml_file.close_tag("term".to_string());
     }
 
     /// Compiles a (possibly empty) comma-seperated list of expressions.
@@ -868,5 +885,18 @@ impl CompilationEngine {
             }
         }
         self.xml_file.close_tag("expressionList".to_string());
+    }
+
+    /// Gets the Kind and type of a variable if exists
+    fn get_kind_index(&self, name: String) -> (Kind, usize) {
+        let mut kind = self.subroutine_symbol_table.kind_of(name.to_string());
+        let mut index;
+        if kind != Kind::NONE {
+            index = self.subroutine_symbol_table.index_of(name.to_string());
+        } else {
+            kind = self.class_symbol_table.kind_of(name.to_string());
+            index = self.class_symbol_table.index_of(name.to_string());
+        }
+        (kind, index)
     }
 }

@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Write;
-use crate::utility::{ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT};
+use crate::utility::{ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT, Kind};
 
 
 pub struct VMWriter{
@@ -25,13 +25,27 @@ impl VMWriter {
     }
 
     /// Writes a VM push command
-    pub fn write_push(&mut self, segment:String, index:usize){
-        self.vm_file.write(format!("push {} {}\n", segment, index).as_ref()).expect("write push failed");
+    pub fn write_push(&mut self, segment:Kind, index:usize){
+        let seg = match segment {
+            Kind::STATIC => {"this"}
+            Kind::FIELD => {"this"}
+            Kind::ARG => {"ARG"}
+            Kind::VAR => {"local"}
+            Kind::NONE => {"constant"}
+        };
+        self.vm_file.write(format!("push {} {}\n", seg, index).as_ref()).expect("write push failed");
     }
 
     /// Writes a VM pop command
-    pub fn write_pop(&mut self, segment:String, index:usize){
-        self.vm_file.write(format!("push {} {}\n", segment, index).as_ref()).expect("write pop failed");
+    pub fn write_pop(&mut self, segment:Kind, index:usize){
+        let seg = match segment {
+            Kind::STATIC => {"this"}
+            Kind::FIELD => {"this"}
+            Kind::ARG => {"ARG"}
+            Kind::VAR => {"local"}
+            Kind::NONE => {"constant"}
+        };
+        self.vm_file.write(format!("push {} {}\n", seg, index).as_ref()).expect("write pop failed");
     }
 
     /// Writes a VM arithmetic-logical command

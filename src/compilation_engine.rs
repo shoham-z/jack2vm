@@ -15,6 +15,7 @@ pub struct CompilationEngine {
     input_file: String,
     class_symbol_table: SymbolTable,
     subroutine_symbol_table: SymbolTable,
+    label_index:usize
 }
 
 impl CompilationEngine {
@@ -45,6 +46,7 @@ impl CompilationEngine {
             input_file: code,
             class_symbol_table: SymbolTable::new(),
             subroutine_symbol_table: SymbolTable::new(),
+            label_index: 0
         }
     }
 
@@ -197,30 +199,42 @@ impl CompilationEngine {
 
         let mut words = func_dec.split_whitespace();
 
-        self.xml_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
+        let subroutine_type = words.nth(0).unwrap();
+        let data_type = words.nth(0).unwrap();
+        let subroutine_name = words.nth(0).unwrap().split("(").nth(0).unwrap();
 
-        let data_type = words.nth(0).unwrap();//subroutine return type
+        //self.xml_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
+
+        //subroutine return type
         if DATA_TYPES.contains(&data_type) {
-            self.xml_file.write("keyword".to_string(), data_type.to_string());
+            //self.xml_file.write("keyword".to_string(), data_type.to_string());
         } else {
-            self.xml_file.write("identifier".to_string(), data_type.to_string());
+            //self.xml_file.write("identifier".to_string(), data_type.to_string());
         }
-
-        self.xml_file.write("identifier".to_string(), words.nth(0).unwrap().split("(").nth(0).unwrap().to_string());//subroutine name
-
-        self.xml_file.write("symbol".to_string(), "(".to_string());
+        //self.xml_file.write("identifier".to_string(), words.nth(0).unwrap().split("(").nth(0).unwrap().to_string());//subroutine name
+        //self.xml_file.write("symbol".to_string(), "(".to_string());
 
         let param_list = func_dec.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap();
 
+        if subroutine_type =="void"{
+            // return nothing
+        } else if subroutine_type == "constructor"{
+            // allocate memory for new object
+        }else if subroutine_type == "method" {
+            // the first argument is the current object
+        } else {
+            // function - static method
+        }
+
         self.compile_parameter_list(param_list.to_string());
 
-        self.xml_file.write("symbol".to_string(), ")".to_string());
+        //self.xml_file.write("symbol".to_string(), ")".to_string());
 
         let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
 
         self.compile_subroutine_body(func_body.to_string());
 
-        self.xml_file.close_tag("subroutineDec".to_string());
+        //self.xml_file.close_tag("subroutineDec".to_string());
     }
 
     /// Compiles a (possibly empty) parameter list.
@@ -250,9 +264,9 @@ impl CompilationEngine {
                             var_split = value.split_whitespace();
                         }
                     }
+                    let data_type = var_split.next().unwrap();
 
                     let var_name = var_split.next().unwrap();
-                    let data_type = var_split.next().unwrap();
                     self.subroutine_symbol_table.define(var_name.to_string(),data_type.to_string(), Kind::ARG);
 
                     //self.xml_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
@@ -518,13 +532,16 @@ impl CompilationEngine {
 
     /// Compiles a let statement.
     fn compile_let(&mut self, content: String) {
-        self.xml_file.open_tag("letStatement".to_string());
+        //self.xml_file.open_tag("letStatement".to_string());
 
-        self.xml_file.write("keyword".to_string(), "let".to_string());
+        //self.xml_file.write("keyword".to_string(), "let".to_string());
+
+        self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim().to_string());
 
         let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap();
 
         if assign_to.contains("[") {
+            // Array entry
             self.xml_file.write("identifier".to_string(), assign_to.split("[").nth(0).unwrap().trim().to_string());
 
 
@@ -534,21 +551,21 @@ impl CompilationEngine {
 
             self.xml_file.write("symbol".to_string(), "]".to_string());
         } else {
-            self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
+            // simple variable
+            //self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
+            let mut kind = Kind::NONE;
+            let mut index = usize::MAX;
+            (kind, index) = self.get_kind_index(assign_to.trim().to_string());
+            self.vm_writer.write_pop(kind,index);
         }
-        self.xml_file.write("symbol".to_string(), "=".to_string());
-
-        self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim().to_string());
-
-        self.xml_file.write("symbol".to_string(), ";".to_string());
-
-
-        self.xml_file.close_tag("letStatement".to_string());
+        //self.xml_file.write("symbol".to_string(), "=".to_string());
+        //self.xml_file.write("symbol".to_string(), ";".to_string());
+        //self.xml_file.close_tag("letStatement".to_string());
     }
 
     /// Compiles an if statement, possible with a trailing else clause.
     fn compile_if(&mut self, content: String) {
-        self.xml_file.open_tag("ifStatement".to_string());
+        //self.xml_file.open_tag("ifStatement".to_string());
 
         let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
 
@@ -558,69 +575,93 @@ impl CompilationEngine {
 
 
         if let Some(value) = content.find("else") {
-            self.xml_file.write("keyword".to_string(), "if".to_string());
-
-            self.xml_file.write("symbol".to_string(), "(".to_string());
+            //self.xml_file.write("keyword".to_string(), "if".to_string());
+            //self.xml_file.write("symbol".to_string(), "(".to_string());
+            let label1 = format!("label{}",self.label_index);
+            self.label_index+=1;
+            let label2 = format!("label{}",self.label_index);
+            self.label_index+=1;
 
             self.compile_expression(expression.to_string());
+            self.vm_writer.write_arithmetic(NOT);
+            self.vm_writer.write_goto(label1.to_string());
 
-            self.xml_file.write("symbol".to_string(), ")".to_string());
+            //self.xml_file.write("symbol".to_string(), ")".to_string());
+            //self.xml_file.write("symbol".to_string(), "{".to_string());
 
-            self.xml_file.write("symbol".to_string(), "{".to_string());
 
+            // if body statements
             self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
 
-            self.xml_file.write("symbol".to_string(), "}".to_string());
+            self.vm_writer.write_goto(label2.to_string());
 
-            self.xml_file.write("keyword".to_string(), "else".to_string());
+            //self.xml_file.write("symbol".to_string(), "}".to_string());
+            //self.xml_file.write("keyword".to_string(), "else".to_string());
+            //self.xml_file.write("symbol".to_string(), "{".to_string());
 
-            self.xml_file.write("symbol".to_string(), "{".to_string());
-
+            self.vm_writer.write_label(label1.to_string());
+            // if body statements
             self.compile_statements(content.get(value + 1..content.rfind("}").unwrap()).unwrap().to_string());
 
-            self.xml_file.write("symbol".to_string(), "}".to_string());
-        } else {
-            self.xml_file.write("keyword".to_string(), "if".to_string());
+            self.vm_writer.write_label(label2.to_string());
 
-            self.xml_file.write("symbol".to_string(), "(".to_string());
+            //self.xml_file.write("symbol".to_string(), "}".to_string());
+        } else {
+            //self.xml_file.write("keyword".to_string(), "if".to_string());
+            //self.xml_file.write("symbol".to_string(), "(".to_string());
+
+            let label1 = format!("label{}",self.label_index);
+            self.label_index+=1;
 
             self.compile_expression(expression.to_string());
 
-            self.xml_file.write("symbol".to_string(), ")".to_string());
+            self.vm_writer.write_arithmetic(NOT);
+            self.vm_writer.write_goto(label1.to_string());
 
-            self.xml_file.write("symbol".to_string(), "{".to_string());
+
+            //self.xml_file.write("symbol".to_string(), ")".to_string());
+            //self.xml_file.write("symbol".to_string(), "{".to_string());
 
             self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().to_string());
 
-            self.xml_file.write("symbol".to_string(), "}".to_string());
+            self.vm_writer.write_label(label1.to_string());
+
+            //self.xml_file.write("symbol".to_string(), "}".to_string());
         }
 
-        self.xml_file.close_tag("ifStatement".to_string());
+        //self.xml_file.close_tag("ifStatement".to_string());
     }
 
     /// Compiles a while statement.
     fn compile_while(&mut self, content: String) {
-        self.xml_file.open_tag("whileStatement".to_string());
+        //self.xml_file.open_tag("whileStatement".to_string());
 
         let temp = content.get(content.find("(").unwrap() + 1..content.find("{").unwrap()).unwrap();
 
         let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
 
-        self.xml_file.write("keyword".to_string(), "while".to_string());
+        //self.xml_file.write("keyword".to_string(), "while".to_string());
 
-        self.xml_file.write("symbol".to_string(), "(".to_string());
+        //self.xml_file.write("symbol".to_string(), "(".to_string());
+        let label1 = format!("label{}",self.label_index);
+        self.label_index+=1;
+        let label2 = format!("label{}",self.label_index);
+        self.label_index+=1;
 
+        self.vm_writer.write_label(label1.to_string());
         self.compile_expression(expression.to_string());
+        self.vm_writer.write_arithmetic(NOT);
+        self.vm_writer.write_goto(label2.to_string());
 
-        self.xml_file.write("symbol".to_string(), ")".to_string());
-
-        self.xml_file.write("symbol".to_string(), "{".to_string());
+        //self.xml_file.write("symbol".to_string(), ")".to_string());
+        //self.xml_file.write("symbol".to_string(), "{".to_string());
 
         self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().to_string());
 
-        self.xml_file.write("symbol".to_string(), "}".to_string());
-
-        self.xml_file.close_tag("whileStatement".to_string());
+        self.vm_writer.write_goto(label1.to_string());
+        self.vm_writer.write_label(label2.to_string());
+        //self.xml_file.write("symbol".to_string(), "}".to_string());
+        //self.xml_file.close_tag("whileStatement".to_string());
     }
 
     /// Compiles a do statement.
@@ -831,7 +872,13 @@ impl CompilationEngine {
         if unary_op {
             self.xml_file.write("symbol".to_string(), term.get(0..1).unwrap().to_string());
 
-            self.compile_term(term.get(1..term.len()).unwrap().to_string())
+            self.compile_term(term.get(1..term.len()).unwrap().to_string());
+            match term.get(0..1).unwrap() {
+                "-" => self.vm_writer.write_arithmetic(NEG),
+                "~" => self.vm_writer.write_arithmetic(NOT),
+                &_ => {}
+            }
+
         } else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
             //self.xml_file.write("symbol".to_string(), "(".to_string());
             if term.find("-") == Some(1) {
@@ -847,22 +894,33 @@ impl CompilationEngine {
             }
             //self.xml_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("\"") == Some(0) && term.rfind("\"") == Some(term.len() - 1) {
-            self.xml_file.write("stringConstant".to_string(), term.get(term.find("\"").unwrap() + 1..term.rfind("\"").unwrap()).unwrap().to_string());
+            let string_constant = term.get(term.find("\"").unwrap() + 1..term.rfind("\"").unwrap()).unwrap();
+
+            //self.xml_file.write("stringConstant".to_string(), term.get(term.find("\"").unwrap() + 1..term.rfind("\"").unwrap()).unwrap().to_string());
         } else if term.chars().all(char::is_numeric) {
             // check for integer constant
             self.vm_writer.write_push(Kind::NONE, term.parse().unwrap());
             //self.xml_file.write("integerConstant".to_string(), term.to_string());
-        } else if UNARY_OP.contains(&term.chars().next().unwrap().to_string().as_str()) {} else if term.find(".").is_some() {
-            self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
+        } else if term.find(".").is_some() {
+            let class_name = term.get(0..term.find(".").unwrap()).unwrap();
+            //self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
+            //self.xml_file.write("symbol".to_string(), ".".to_string());
 
-            self.xml_file.write("symbol".to_string(), ".".to_string());
+            let subroutine_name = term.get(term.find(".").unwrap() + 1..term.find("(").unwrap()).unwrap();
 
-            self.xml_file.write("identifier".to_string(), term.get(term.find(".").unwrap() + 1..term.find("(").unwrap()).unwrap().to_string());
 
-            self.xml_file.write("symbol".to_string(), "(".to_string());
-            self.compile_expression_list(term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap().to_string());
+            //self.xml_file.write("identifier".to_string(), identifier.to_string());
+            //self.xml_file.write("symbol".to_string(), "(".to_string());
 
-            self.xml_file.write("symbol".to_string(), ")".to_string());
+            let expressions = term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap();
+            self.compile_expression_list(expressions.to_string());
+
+            if subroutine_name == "new"{
+                // Constructor call
+                self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expressions.matches(",").count()+1);
+            }
+            //self.vm_writer.write_call()
+            //self.xml_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("[").is_some() {
             self.xml_file.write("identifier".to_string(), term.get(0..term.find("[").unwrap()).unwrap().to_string());
 

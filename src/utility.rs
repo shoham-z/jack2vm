@@ -1,5 +1,5 @@
 /// This file contains all the constants/data types that i have defined, along the proposed implementation
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy,PartialEq)]
 pub enum Kind{
     STATIC,
     FIELD,

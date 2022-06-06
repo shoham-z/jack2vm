@@ -672,7 +672,7 @@ impl CompilationEngine {
 
     /// Compiles an expression.
     pub fn compile_expression(&mut self, expression: String) {
-        self.xml_file.open_tag("expression".to_string());
+        //self.xml_file.open_tag("expression".to_string());
 
         let mut index = usize::MAX;
         let mut tmp;
@@ -689,7 +689,7 @@ impl CompilationEngine {
             }
         }
         index = usize::MAX;
-
+        // makes sure that the operation we are working on is not inside round brackets "()"
         for val in arr {
             let start = expression.get(0..val).unwrap().trim();
             let end = expression.get(val + 1..expression.len()).unwrap().trim();
@@ -711,6 +711,7 @@ impl CompilationEngine {
                 index = val;
             }
         }
+
         let reg = Regex::new(r"(?m)\(.*\) ([+\-*/&|<>=]) \(.*\)|\(.*\)([+\-*/&|<>=])\(.*\)").unwrap();
         if reg.is_match(expression.trim()) {
             for op in OP {
@@ -720,7 +721,10 @@ impl CompilationEngine {
                     for item in checks.clone() {
                         let exp = item.trim();
                         if exp.find("(") == Some(0) && exp.rfind(")") == Some(exp.len() - 1) {
-                            self.compile_term(item.trim().to_string());
+                            self.compile_term(item.get(0..expression.find(op).unwrap() - 1).unwrap().trim().to_string());
+
+                            self.compile_term(expression.get(expression.find(op).unwrap() + 1..expression.len()).unwrap().trim().to_string());
+
                             if item != checks.clone().last().unwrap() {
                                 match op {
                                     "<" => self.xml_file.write("symbol".to_string(), "&lt;".to_string()),
@@ -728,6 +732,7 @@ impl CompilationEngine {
                                     "&" => self.xml_file.write("symbol".to_string(), "&amp;".to_string()),
                                     &_ => self.xml_file.write("symbol".to_string(), op.trim().to_string())
                                 }
+                                break;
                             } else {
                                 self.xml_file.close_tag("expression".to_string());
                                 return;
@@ -743,10 +748,12 @@ impl CompilationEngine {
         } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "-" {
             self.compile_term(expression.trim().to_string());
         } else {
-            if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
-                self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
+            let var = expression.get(0..index).unwrap();
+            if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(var.len() - 1) {
+                self.compile_term(var.to_string());
+                self.compile_term(expression.get(index + 1..expression.len()).unwrap().trim().to_string());
             } else {
-                self.compile_term(expression.get(0..index).unwrap().trim().to_string());
+                self.compile_term(var.trim().to_string());
 
                 let mut symbol = expression.get(index..index + 1).unwrap().trim();
                 if symbol == "" {
@@ -757,7 +764,7 @@ impl CompilationEngine {
                 }
 
 
-                let rest_of_exp = expression.get(index + 2..expression.len()).unwrap().trim();
+                let rest_of_exp = expression.get(index + 1..expression.len()).unwrap().trim();
                 let mut rest_of_exp_has_op = false;
                 for op in OP {
                     tmp = rest_of_exp.trim().find(op);
@@ -771,7 +778,7 @@ impl CompilationEngine {
                 }
 
                 if rest_of_exp_has_op {
-                    self.compile_term(rest_of_exp.to_string());
+                    self.compile_expression(rest_of_exp.to_string());
                 } else {
                     self.compile_term(rest_of_exp.trim().to_string());
                 }
@@ -784,7 +791,7 @@ impl CompilationEngine {
                 }
             }
         }
-        self.xml_file.close_tag("expression".to_string());
+        //self.xml_file.close_tag("expression".to_string());
     }
 
     /// Compiles a term.
@@ -794,7 +801,7 @@ impl CompilationEngine {
     /// suffices to distinguish between the possibilities
     /// Any other token is not part of this term and should not be advanced over.
     fn compile_term(&mut self, term: String) {
-        self.xml_file.open_tag("term".to_string());
+        //self.xml_file.open_tag("term".to_string());
         for keyword in KEYWORD_CONSTANT {
             if term == keyword.to_string() {
                 self.xml_file.write("keyword".to_string(), term.to_string());
@@ -806,6 +813,11 @@ impl CompilationEngine {
         for op in UNARY_OP {
             if term.find(op) == Some(0) { unary_op = true; }
         }
+
+        let mut is_op = false;
+        for op in OP {
+            if term.find(op).is_some() { is_op = true; }
+        }
         if unary_op {
             //self.xml_file.write("symbol".to_string(), term.get(0..1).unwrap().to_string());
             if term.get(0..1).unwrap() == "-" {
@@ -815,8 +827,8 @@ impl CompilationEngine {
             }
 
             self.compile_term(term.get(1..term.len()).unwrap().to_string())
-        } else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
-            self.xml_file.write("symbol".to_string(), "(".to_string());
+        }  else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
+            //self.xml_file.write("symbol".to_string(), "(".to_string());
             if term.find("-") == Some(1) {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             } else if term.find("~") == Some(1) {
@@ -824,13 +836,15 @@ impl CompilationEngine {
             } else {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             }
-            self.xml_file.write("symbol".to_string(), ")".to_string());
+            //self.xml_file.write("symbol".to_string(), ")".to_string());
         } else if term.find("\"") == Some(0) && term.rfind("\"") == Some(term.len() - 1) {
             self.xml_file.write("stringConstant".to_string(), term.get(term.find("\"").unwrap() + 1..term.rfind("\"").unwrap()).unwrap().to_string());
         } else if term.chars().all(char::is_numeric) { // check for integer constant
-
             self.xml_file.write("integerConstant".to_string(), term.to_string());
-        } else if UNARY_OP.contains(&term.chars().next().unwrap().to_string().as_str()) {} else if term.find(".").is_some() {
+        } else if is_op {
+            // Complicated Expression
+            self.compile_expression(term.to_string());
+        } else if term.find(".").is_some() {
             // method call
 
             self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
@@ -854,15 +868,15 @@ impl CompilationEngine {
 
             self.xml_file.write("symbol".to_string(), "]".to_string());
         } else {
-            // var name
+            // var name or expression
 
             let mut kind = Kind::NONE;
             let mut index = 0;
-            (kind, index) = self.get_kind_type(term);
+            (kind, index) = self.get_kind_index(term.to_string());
 
             self.vm_writer.write_push(kind, index);
 
-            //self.xml_file.write("identifier".to_string(), term.to_string());
+            self.xml_file.write("identifier".to_string(), term.to_string());
         }
         //self.xml_file.close_tag("term".to_string());
     }
@@ -891,11 +905,11 @@ impl CompilationEngine {
     fn get_kind_index(&self, name: String) -> (Kind, usize) {
         let mut kind = self.subroutine_symbol_table.kind_of(name.to_string());
         let mut index;
-        if kind != Kind::NONE {
-            index = self.subroutine_symbol_table.index_of(name.to_string());
-        } else {
+        if kind == Kind::NONE {
             kind = self.class_symbol_table.kind_of(name.to_string());
             index = self.class_symbol_table.index_of(name.to_string());
+        } else {
+            index = self.subroutine_symbol_table.index_of(name.to_string());
         }
         (kind, index)
     }

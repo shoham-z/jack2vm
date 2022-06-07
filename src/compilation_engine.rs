@@ -573,7 +573,8 @@ impl CompilationEngine {
             let mut index = usize::MAX;
             (kind,index) = self.get_kind_index(var_name.to_string());
 
-            self.compile_expression(content.get(content.find("[").unwrap() + 1..content.find("]").unwrap()).unwrap().trim().to_string());
+            let arr_exp = assign_to.get(assign_to.find("[").unwrap()+1..assign_to.rfind("]").unwrap()).unwrap().trim();
+            self.compile_expression(arr_exp.to_string());
             self.vm_writer.write_push(kind, "".to_string(), index);// push arr
             self.vm_writer.write_arithmetic(ADD);
 
@@ -866,6 +867,8 @@ impl CompilationEngine {
             self.compile_term(expression.trim().to_string());
         } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "-" {
             self.compile_term(expression.trim().to_string());
+
+            // This if is not good enough for (7-a[3]) - Main.double(2)
         } else if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
                 self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
             } else {
@@ -989,7 +992,28 @@ impl CompilationEngine {
             // check for integer constant
             self.vm_writer.write_push(Kind::NONE, "".to_string(), term.parse().unwrap());
             //self.xml_file.write("integerConstant".to_string(), term.to_string());
-        } else if term.find(".").is_some() {
+        } else if term.find("[").is_some() {
+            //self.xml_file.write("identifier".to_string(), term.get(0..term.find("[").unwrap()).unwrap().to_string());
+            //self.xml_file.write("symbol".to_string(), "[".to_string());
+
+            let arr_name = term.get(0..term.find("[").unwrap()).unwrap();
+            let arr_entry = term.get(term.find("[").unwrap() + 1..term.rfind("]").unwrap()).unwrap();
+
+            let mut kind = Kind::NONE;
+            let mut index = usize::MAX;
+            (kind,index) = self.get_kind_index(arr_name.to_string());
+
+            self.compile_expression(arr_entry.to_string());
+            self.vm_writer.write_push(kind, "".to_string(), index);// push arr
+
+            self.vm_writer.write_arithmetic(ADD);
+
+            self.vm_writer.write_pop(Kind::NONE, "pointer".to_string(), 1);
+            self.vm_writer.write_push(Kind::NONE, "that".to_string(), 0);
+
+
+            //self.xml_file.write("symbol".to_string(), "]".to_string());
+        }else if term.find(".").is_some() {
             let class_name = term.get(0..term.find(".").unwrap()).unwrap();
             //self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
             //self.xml_file.write("symbol".to_string(), ".".to_string());
@@ -1017,28 +1041,7 @@ println!("BANANAAAAA!!!!!");
             //self.xml_file.write("symbol".to_string(), ")".to_string());
 
 
-        } else if term.find("[").is_some() {
-            //self.xml_file.write("identifier".to_string(), term.get(0..term.find("[").unwrap()).unwrap().to_string());
-            //self.xml_file.write("symbol".to_string(), "[".to_string());
-
-            let arr_name = term.get(0..term.find("[").unwrap()).unwrap();
-            let arr_entry = term.get(term.find("[").unwrap() + 1..term.find("]").unwrap()).unwrap();
-
-            let mut kind = Kind::NONE;
-            let mut index = usize::MAX;
-            (kind,index) = self.get_kind_index(arr_name.to_string());
-
-            self.compile_expression(arr_entry.to_string());
-            self.vm_writer.write_push(kind, "".to_string(), index);// push arr
-
-            self.vm_writer.write_arithmetic(ADD);
-
-            self.vm_writer.write_pop(Kind::NONE, "pointer".to_string(), 1);
-            self.vm_writer.write_push(Kind::NONE, "that".to_string(), 0);
-
-
-            //self.xml_file.write("symbol".to_string(), "]".to_string());
-        } else {
+        }  else {
             // var name or expression
 
             let mut kind = Kind::NONE;

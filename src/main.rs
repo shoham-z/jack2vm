@@ -31,6 +31,7 @@ fn main() {
     //let temp ="/home/shoham/nand2tetris/projects/11/ComplexArrays/".to_string();
     //let temp ="/home/shoham/nand2tetris/projects/11/Square/".to_string();
     //let temp ="/home/shoham/nand2tetris/projects/11/Pong/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/09/game/".to_string();
 
     if !temp.contains(".jack"){file_path = search_jack_files(temp.as_str());} else{file_path= Vec::new(); file_path.push(temp.to_string())}
     for file in file_path {

@@ -490,6 +490,16 @@ impl CompilationEngine {
                 }
                 if first_word == "if"
                 {
+
+
+                    // *THE*
+                    // *ISSUE*
+                    // *IS*
+                    // *HERE*
+
+
+
+
                     let mut start_statement = current_line;
                     let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
@@ -517,14 +527,14 @@ impl CompilationEngine {
                     if if_lines.clone().len()==2{
                         if_statement.push_str(start_statement);
                     }
-                    for index in 1..if_lines.clone().len() - 1 {
+                    for my_index in 1..if_lines.clone().len() - 1 {
                         if !if_line.is_empty() {
                             if_statement.push_str(if_line);
                             if_statement.push_str("\n");
                             open_count += if_line.matches("{").count();
                             close_count += if_line.matches("}").count();
 
-                            if_line = if_lines.get(index).unwrap();
+                            if_line = if_lines.get(my_index).unwrap();
                             current_line = lines.next().unwrap();
 
                             if open_count == close_count && open_count != 0 && !if_line.contains("else") {
@@ -607,6 +617,7 @@ impl CompilationEngine {
         } else {
             // simple variable
             //self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
+
             self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim().to_string());
 
             let mut kind = Kind::NONE;
@@ -633,14 +644,6 @@ impl CompilationEngine {
         // if false, go to the else clause
         let elses = content.match_indices("else");
         if elses.clone().count() > 0 {
-
-            if content.contains( "        if (positivex) {
-if (invert) { let y = y - 4; }
-            else { let x = x - 4; }
-	    }
-"){
-                print!("lmafo");
-            }
 
             let mut value = usize::MAX;
             for myelse in elses{
@@ -1083,6 +1086,8 @@ if (invert) { let y = y - 4; }
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
             (kind, index) = self.get_kind_index(class_name.to_string());
+            let mut data_type = self.subroutine_symbol_table.type_of(class_name.to_string());
+            if data_type == "".to_string() {data_type = self.class_symbol_table.type_of(class_name.to_string()); }
 
             let expressions = term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap();
             self.compile_expression_list(expressions.to_string());
@@ -1094,8 +1099,11 @@ if (invert) { let y = y - 4; }
                 // Constructor call
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
             } else if kind != Kind::NONE {
+                self.vm_writer.write_push(kind, "".to_string(),index);
+                self.vm_writer.write_call(format!("{}.{}", data_type, subroutine_name), expression_count + 1);
+            } else {
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
-            } else { self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count); }
+            }
             //self.xml_file.write("symbol".to_string(), ")".to_string());
         } else {
             // var name or expression

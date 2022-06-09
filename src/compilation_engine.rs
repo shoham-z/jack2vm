@@ -1,10 +1,11 @@
 use std::env::var_os;
 use std::fs;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::symbol_table::SymbolTable;
-use crate::utility::{ADD, AND, CLASS_FUNC_TYPES, CLASS_VAR_TYPES, DATA_TYPES, EQ, GT, KEYWORD_CONSTANT, Kind, LT, NEG, NOT, OP, OR, SUB, UNARY_OP};
+use crate::utility::{ADD, AND, BUILT_IN_CLASSES, CLASS_FUNC_TYPES, CLASS_VAR_TYPES, DATA_TYPES, EQ, GT, KEYWORD_CONSTANT, Kind, LT, NEG, NOT, OP, OR, SUB, UNARY_OP};
 use crate::vm_writer::VMWriter;
 use crate::xmlwriter::XmlWriter;
 
@@ -16,14 +17,14 @@ lazy_static! {
 
 
 pub struct CompilationEngine {
-    pub class_name: String,
+    class_name: String,
     xml_file: XmlWriter,
     vm_writer: VMWriter,
     input_file: String,
     class_symbol_table: SymbolTable,
     subroutine_symbol_table: SymbolTable,
-    while_label_index:usize,
-    if_label_index:usize,
+    while_label_index: usize,
+    if_label_index: usize,
 }
 
 impl CompilationEngine {
@@ -55,7 +56,7 @@ impl CompilationEngine {
             class_symbol_table: SymbolTable::new(),
             subroutine_symbol_table: SymbolTable::new(),
             while_label_index: 0,
-            if_label_index: 0
+            if_label_index: 0,
         }
     }
 
@@ -214,15 +215,15 @@ impl CompilationEngine {
         let data_type = words.nth(0).unwrap();
         let subroutine_name = words.nth(0).unwrap().split("(").nth(0).unwrap();
 
-        let mut local_vars_count = if subroutine_type =="method"{1}else{0};
+        let mut local_vars_count = 0;
 
-        for line in content.clone().lines(){
-            if line.trim().starts_with("var"){
-                local_vars_count+=line.matches(",").count()+1;
+        for line in content.clone().lines() {
+            if line.trim().starts_with("var") {
+                local_vars_count += line.matches(",").count() + 1;
             }
         }
 
-        self.vm_writer.write_function(format!("{}.{}",self.class_name,subroutine_name),local_vars_count);
+        self.vm_writer.write_function(format!("{}.{}", self.class_name, subroutine_name), local_vars_count);
         //self.xml_file.write("keyword".to_string(), words.nth(0).unwrap().to_string());//subroutine type - constructor/method/function keyword
 
         //subroutine return type
@@ -237,24 +238,29 @@ impl CompilationEngine {
         let param_list = func_dec.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap();
         let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
 
-        self.compile_parameter_list(param_list.to_string());
+        if subroutine_name == "move"{
+            println!("yooo");
+        }
 
-        if subroutine_type =="void"{
+        if subroutine_type == "void" {
             // return nothing
-        } else if subroutine_type == "constructor"{
+        } else if subroutine_type == "constructor" {
             // allocate memory for new object
 
-            self.vm_writer.write_push( Kind::NONE,"".to_string(),self.class_symbol_table.var_count(Kind::FIELD));
+            self.vm_writer.write_push(Kind::NONE, "".to_string(), self.class_symbol_table.var_count(Kind::FIELD));
             self.vm_writer.write_call("Memory.alloc".to_string(), 1);
-            self.vm_writer.write_pop(Kind::NONE,"pointer".to_string(), 0);
-        }else if subroutine_type == "method" {
+            self.vm_writer.write_pop(Kind::NONE, "pointer".to_string(), 0);
+        } else if subroutine_type == "method" {
             // the first argument is the current object
 
-            self.vm_writer.write_push(Kind::ARG,"".to_string(),0);
-            self.vm_writer.write_pop(Kind::NONE,"pointer".to_string(),0);
+            self.subroutine_symbol_table.define("this".to_string(), self.class_name.to_string(), Kind::ARG);
+            self.vm_writer.write_push(Kind::ARG, "".to_string(), 0);
+            self.vm_writer.write_pop(Kind::NONE, "pointer".to_string(), 0);
         } else {
             // function - static method
         }
+        self.compile_parameter_list(param_list.to_string());
+
 
         self.compile_subroutine_body(func_body.to_string());
 
@@ -274,7 +280,7 @@ impl CompilationEngine {
             let count = content.find(",");
 
             if count.is_some() {
-                let times = count.unwrap() - 1; // one to get to the end of the collection
+                let times = count.unwrap(); // one to get to the end of the collection
                 let mut var_split;
                 for _index in 1..times {
                     let temp = vars.next();
@@ -292,7 +298,7 @@ impl CompilationEngine {
                     let data_type = var_split.next().unwrap();
 
                     let var_name = var_split.next().unwrap();
-                    self.subroutine_symbol_table.define(var_name.to_string(),data_type.to_string(), Kind::ARG);
+                    self.subroutine_symbol_table.define(var_name.to_string(), data_type.to_string(), Kind::ARG);
 
                     //self.xml_file.write("keyword".to_string(), var_split.next().unwrap().to_string());
                     //self.xml_file.write("identifier".to_string(), var_split.next().unwrap().to_string());
@@ -375,13 +381,13 @@ impl CompilationEngine {
 
                 comma = var_name.find(",");
             }
-            self.subroutine_symbol_table.define(var_name.get(0..var_name.len()-1).unwrap().to_string(), data_type.to_string(), Kind::VAR);
+            self.subroutine_symbol_table.define(var_name.get(0..var_name.len() - 1).unwrap().to_string(), data_type.to_string(), Kind::VAR);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.find(';').unwrap()).unwrap().to_string());
             //self.output_file.write("symbol".to_string(), ";".to_string());
         } else {
             let var_name = words.nth(0).unwrap();
-            self.subroutine_symbol_table.define(var_name.get(0..var_name.len()-1).unwrap().to_string(), data_type.to_string(), Kind::VAR);
+            self.subroutine_symbol_table.define(var_name.get(0..var_name.len() - 1).unwrap().to_string(), data_type.to_string(), Kind::VAR);
 
             //self.output_file.write("identifier".to_string(), var_name.get(0..var_name.len() - 1).unwrap().to_string());
 
@@ -422,9 +428,9 @@ impl CompilationEngine {
                 self.compile_return(line.trim().to_string());
             }
         } else {
-            for _index in 1..lines.clone().count() {
+            for index in 0..lines.clone().count() {
                 if advance {
-                    let tmp = lines.next();
+                    tmp = lines.next();
                     if tmp.is_some() {
                         current_line = tmp.unwrap().trim();
                     }
@@ -467,6 +473,7 @@ impl CompilationEngine {
                             close_count += while_line.matches("}").count();
 
                             if open_count == close_count && open_count != 0 {
+
                                 advance = false;
                                 break;
                             } else if open_count < close_count {
@@ -474,10 +481,12 @@ impl CompilationEngine {
                             }
                         }
                     }
-                    if while_statement.trim().chars().last() != Some('}') {
+                    if while_statement.matches("{").count() == while_statement.matches("}").count() && !while_statement.is_empty() {
                         while_statement.push_str("}");
                     }
-                    self.compile_while(while_statement);
+                    if !while_statement.is_empty() {
+                        self.compile_while(while_statement);
+                    }
                 }
                 if first_word == "if"
                 {
@@ -485,7 +494,7 @@ impl CompilationEngine {
                     let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
                         let line_clone = lines_clone.next().unwrap();
-                        if line_clone.contains("if") && !previous_statements.contains(&index_clone) {
+                        if line_clone.contains("if") && !previous_statements.contains(&index_clone) && index >= index_clone {
                             start_statement = line_clone;
                             previous_statements.push(index_clone);
                             break;
@@ -494,6 +503,8 @@ impl CompilationEngine {
 
                     let mut if_lines = Vec::new();
                     if_lines.push(start_statement);
+                    if start_statement.trim()!= current_line.trim(){
+                    if_lines.push(current_line);}
                     for line in lines.clone() {
                         if_lines.push(line);
                     }
@@ -503,15 +514,18 @@ impl CompilationEngine {
                     let mut open_count = 0;
                     let mut close_count = 0;
                     let mut if_line = if_lines.get(0).unwrap();
+                    if if_lines.clone().len()==2{
+                        if_statement.push_str(start_statement);
+                    }
                     for index in 1..if_lines.clone().len() - 1 {
                         if !if_line.is_empty() {
-                            current_line = lines.next().unwrap();
                             if_statement.push_str(if_line);
                             if_statement.push_str("\n");
                             open_count += if_line.matches("{").count();
                             close_count += if_line.matches("}").count();
 
                             if_line = if_lines.get(index).unwrap();
+                            current_line = lines.next().unwrap();
 
                             if open_count == close_count && open_count != 0 && !if_line.contains("else") {
                                 advance = false;
@@ -521,10 +535,12 @@ impl CompilationEngine {
                             }
                         }
                     }
-                    if if_statement.trim().chars().last() != Some('}') {
+                    if if_statement.matches("{").count() != if_statement.matches("}").count() && !if_statement.is_empty() {
                         if_statement.push_str("}");
                     }
-                    self.compile_if(if_statement);
+                    if !if_statement.is_empty() {
+                        self.compile_if(if_statement);
+                    }
                 }
                 tmp = current_line.trim().split_whitespace().nth(0);
                 match tmp {
@@ -562,7 +578,6 @@ impl CompilationEngine {
         let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap();
 
 
-
         if assign_to.contains("[") {
             // Array entry
             //self.xml_file.write("identifier".to_string(), assign_to.split("[").nth(0).unwrap().trim().to_string());
@@ -571,9 +586,9 @@ impl CompilationEngine {
             let var_name = assign_to.get(0..assign_to.find("[").unwrap()).unwrap().trim();
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
-            (kind,index) = self.get_kind_index(var_name.to_string());
+            (kind, index) = self.get_kind_index(var_name.to_string());
 
-            let arr_exp = assign_to.get(assign_to.find("[").unwrap()+1..assign_to.rfind("]").unwrap()).unwrap().trim();
+            let arr_exp = assign_to.get(assign_to.find("[").unwrap() + 1..assign_to.rfind("]").unwrap()).unwrap().trim();
             self.compile_expression(arr_exp.to_string());
             self.vm_writer.write_push(kind, "".to_string(), index);// push arr
             self.vm_writer.write_arithmetic(ADD);
@@ -581,7 +596,7 @@ impl CompilationEngine {
             self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim().to_string());
 
             // pop temp 1 --- temp 0 is used for void functions return value
-            self.vm_writer.write_pop(Kind::NONE, "temp".to_string(),1);
+            self.vm_writer.write_pop(Kind::NONE, "temp".to_string(), 1);
             // pop pointer 1
             self.vm_writer.write_pop(Kind::NONE, "pointer".to_string(), 1);
             // push temp 1 --- temp 0 is used for void functions return value
@@ -597,7 +612,7 @@ impl CompilationEngine {
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
             (kind, index) = self.get_kind_index(assign_to.trim().to_string());
-            self.vm_writer.write_pop(kind,"".to_string(),index);
+            self.vm_writer.write_pop(kind, "".to_string(), index);
         }
         //self.xml_file.write("symbol".to_string(), "=".to_string());
         //self.xml_file.write("symbol".to_string(), ";".to_string());
@@ -613,62 +628,91 @@ impl CompilationEngine {
         let expression = temp.get(0..temp.rfind(")").unwrap()).unwrap();
 
         // NEED TO CHANGE THIS CONDITION TO NOT RECOGNIZE NESTED IF-ELSE
-        if let Some(value) = content.rfind("else") {
+        // check for all occurrences of "else" if the count of "{" and "}" are equal
+        // if true, proceed into the if
+        // if false, go to the else clause
+        let elses = content.match_indices("else");
+        if elses.clone().count() > 0 {
 
-            //if if_clause.matches("{").count() ==if_clause.matches("}").count() && else_clause.matches("{").count() ==else_clause.matches("}").count(){
-            //self.xml_file.write("keyword".to_string(), "if".to_string());
-            //self.xml_file.write("symbol".to_string(), "(".to_string());
-            let label1 = format!("ELSE_END{}",self.if_label_index);
-            let label2 = format!("IF_END{}",self.if_label_index);
-            self.if_label_index+=1;
+            if content.contains( "        if (positivex) {
+if (invert) { let y = y - 4; }
+            else { let x = x - 4; }
+	    }
+"){
+                print!("lmafo");
+            }
 
-            self.compile_expression(expression.to_string());
-            self.vm_writer.write_arithmetic(NOT);
-            self.vm_writer.write_if(label1.to_string());
+            let mut value = usize::MAX;
+            for myelse in elses{
+                let start = content.get(0..myelse.0).unwrap().matches("{").count();
+                let end = content.get(0..myelse.0).unwrap().matches("}").count();
+                if start == end {
+                    value = myelse.0;
+                    //self.xml_file.write("keyword".to_string(), "if".to_string());
+                    //self.xml_file.write("symbol".to_string(), "(".to_string());
+                    let if_true = format!("IF_TRUE{}", self.if_label_index);
+                    let if_false = format!("IF_FALSE{}", self.if_label_index);
+                    let if_end = format!("IF_END{}", self.if_label_index);
+                    self.if_label_index += 1;
 
-            //self.xml_file.write("symbol".to_string(), ")".to_string());
-            //self.xml_file.write("symbol".to_string(), "{".to_string());
+                    self.compile_expression(expression.to_string());
+                    self.vm_writer.write_if(if_true.to_string());
+                    self.vm_writer.write_goto(if_false.to_string());
+                    self.vm_writer.write_label(if_true.to_string());
 
 
-            // if body statements
-            self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
+                    //self.xml_file.write("symbol".to_string(), ")".to_string());
+                    //self.xml_file.write("symbol".to_string(), "{".to_string());
 
-            self.vm_writer.write_goto(label2.to_string());
 
-            //self.xml_file.write("symbol".to_string(), "}".to_string());
-            //self.xml_file.write("keyword".to_string(), "else".to_string());
-            //self.xml_file.write("symbol".to_string(), "{".to_string());
 
-            self.vm_writer.write_label(label1.to_string());
+                    // if body statements
+                    self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
 
-            // else body statements
-            self.compile_statements(content.get(value + 1..content.rfind("}").unwrap()+1).unwrap().to_string());
+                    self.vm_writer.write_goto(if_end.to_string());
 
-            self.vm_writer.write_label(label2.to_string());
+                    //self.xml_file.write("symbol".to_string(), "}".to_string());
+                    //self.xml_file.write("keyword".to_string(), "else".to_string());
+                    //self.xml_file.write("symbol".to_string(), "{".to_string());
 
-            //self.xml_file.write("symbol".to_string(), "}".to_string());
-            return;
+                    self.vm_writer.write_label(if_false.to_string());
+
+                    // else body statements
+                    self.compile_statements(content.get(value + 1..content.rfind("}").unwrap() + 1).unwrap().to_string());
+
+                    self.vm_writer.write_label(if_end.to_string());
+
+                    //self.xml_file.write("symbol".to_string(), "}".to_string());
+                    return;
+                }
+            }
+
+
         }
-            //self.xml_file.write("keyword".to_string(), "if".to_string());
-            //self.xml_file.write("symbol".to_string(), "(".to_string());
-
-            let label1 = format!("IF_END{}",self.if_label_index);
-            self.if_label_index+=1;
-
-            self.compile_expression(expression.to_string());
-
-            self.vm_writer.write_arithmetic(NOT);
-            self.vm_writer.write_if(label1.to_string());
+        //self.xml_file.write("keyword".to_string(), "if".to_string());
+        //self.xml_file.write("symbol".to_string(), "(".to_string());
 
 
-            //self.xml_file.write("symbol".to_string(), ")".to_string());
-            //self.xml_file.write("symbol".to_string(), "{".to_string());
+        let if_true = format!("IF_TRUE{}", self.if_label_index);
+        let if_false = format!("IF_FALSE{}", self.if_label_index);
+        self.if_label_index += 1;
 
-            self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().trim().to_string());
+        self.compile_expression(expression.to_string());
+        self.vm_writer.write_if(if_true.to_string());
+        self.vm_writer.write_goto(if_false.to_string());
+        self.vm_writer.write_label(if_true.to_string());
 
-            self.vm_writer.write_label(label1.to_string());
 
-            //self.xml_file.write("symbol".to_string(), "}".to_string());
+        //self.xml_file.write("symbol".to_string(), ")".to_string());
+        //self.xml_file.write("symbol".to_string(), "{".to_string());
+
+
+        // if body statements
+        self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().trim().to_string());
+
+        self.vm_writer.write_label(if_false.to_string());
+
+        //self.xml_file.write("symbol".to_string(), "}".to_string());
 
 
         //self.xml_file.close_tag("ifStatement".to_string());
@@ -685,23 +729,23 @@ impl CompilationEngine {
         //self.xml_file.write("keyword".to_string(), "while".to_string());
 
         //self.xml_file.write("symbol".to_string(), "(".to_string());
-        let label1 = format!("WHILE_START{}",self.while_label_index);
+        let while_exp = format!("WHILE_EXP{}", self.while_label_index);
 
-        let label2 = format!("WHILE_END{}",self.while_label_index);
-        self.while_label_index+=1;
+        let while_end = format!("WHILE_END{}", self.while_label_index);
+        self.while_label_index += 1;
 
-        self.vm_writer.write_label(label1.to_string());
+        self.vm_writer.write_label(while_exp.to_string());
         self.compile_expression(expression.to_string());
         self.vm_writer.write_arithmetic(NOT);
-        self.vm_writer.write_if(label2.to_string());
+        self.vm_writer.write_if(while_end.to_string());
 
         //self.xml_file.write("symbol".to_string(), ")".to_string());
         //self.xml_file.write("symbol".to_string(), "{".to_string());
 
         self.compile_statements(content.get(content.find("{").unwrap() + 1..content.rfind("}").unwrap()).unwrap().to_string());
 
-        self.vm_writer.write_goto(label1.to_string());
-        self.vm_writer.write_label(label2.to_string());
+        self.vm_writer.write_goto(while_exp.to_string());
+        self.vm_writer.write_label(while_end.to_string());
         //self.xml_file.write("symbol".to_string(), "}".to_string());
         //self.xml_file.close_tag("whileStatement".to_string());
     }
@@ -723,18 +767,30 @@ impl CompilationEngine {
             let class_name = do_content.get(0..value).unwrap();
             let expression_list = do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap();
             let mut param_count = 0;
-            if !expression_list.is_empty(){
-                param_count+=expression_list.matches(",").count()+1;
+            if !expression_list.is_empty() {
+                param_count += expression_list.matches(",").count() + 1;
             }
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
-            (kind,index) = self.get_kind_index(class_name.to_string());
-            if kind!=Kind::NONE {
+            (kind, index) = self.get_kind_index(class_name.to_string());
+            if kind != Kind::NONE {
                 self.vm_writer.write_push(kind, "".to_string(), index);
-                param_count+=1;
+                param_count += 1;
             }
+
             self.compile_expression_list(expression_list.to_string());
-            self.vm_writer.write_call(do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string(),param_count);
+
+            if BUILT_IN_CLASSES.contains(&class_name) {
+                self.vm_writer.write_call(do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string(), param_count);
+            } else {
+                let mut call = self.subroutine_symbol_table.type_of(class_name.to_string());
+                if call.is_empty() { call = self.class_symbol_table.type_of(class_name.to_string()); }
+                if !call.is_empty() {
+                    self.vm_writer.write_call((call + do_content.get(do_content.find(".").unwrap()..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
+                } else {
+                    self.vm_writer.write_call((class_name.to_string() + do_content.get(do_content.find(".").unwrap()..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
+                }
+            }
 
             //self.xml_file.write("identifier".to_string(), do_content.get(0..do_content.find(".").unwrap()).unwrap().to_string());
             //self.xml_file.write("symbol".to_string(), ".".to_string());
@@ -743,23 +799,23 @@ impl CompilationEngine {
             // this class's method
 
             // maybe there is no need for this line
-            self.vm_writer.write_push(Kind::NONE, "pointer".to_string(),0);
+            self.vm_writer.write_push(Kind::NONE, "pointer".to_string(), 0);
 
             let expression_list = do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap();
 
-            let mut param_count = 0;
-            if !expression_list.is_empty(){
-                param_count+=expression_list.matches(",").count();
+            let mut param_count = 1;
+            if !expression_list.is_empty() {
+                param_count += expression_list.matches(",").count();
             }
 
             self.compile_expression_list(expression_list.to_string());
 
-            self.vm_writer.write_call(do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string(),param_count);
+            self.vm_writer.write_call((self.class_name.to_string() + "." + do_content.get(0..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
 
 
             //self.xml_file.write("identifier".to_string(), do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string());
         }
-        self.vm_writer.write_pop(Kind::NONE, "temp".to_string(),0);
+        self.vm_writer.write_pop(Kind::NONE, "temp".to_string(), 0);
 
         //self.xml_file.write("symbol".to_string(), "(".to_string());
         //self.xml_file.write("symbol".to_string(), ")".to_string());
@@ -774,7 +830,7 @@ impl CompilationEngine {
 
         if !content.contains("return;") {
             self.compile_expression(content.get(content.trim().find(" ").unwrap()..content.find(";").unwrap()).unwrap().trim().to_string());
-        } else{
+        } else {
             self.vm_writer.write_push(Kind::NONE, "".to_string(), 0);
         }
 
@@ -787,18 +843,17 @@ impl CompilationEngine {
     fn compile_expression(&mut self, expression: String) {
 
         //self.xml_file.open_tag("expression".to_string());
+        if expression == "(dx < dy)" {}
+
 
         let mut index = usize::MAX;
         let mut tmp;
         let mut arr: Vec<usize> = Vec::new();
         for op in OP {
-            tmp = expression.trim().find(op);
-            match tmp {
-                None => {}
-                Some(value) => {
-                    if value != usize::MAX {
-                        arr.push(value);
-                    }
+            let temp = expression.trim().match_indices(op);
+            for tmp in temp {
+                if tmp.0 != usize::MAX {
+                    arr.push(tmp.0);
                 }
             }
         }
@@ -813,12 +868,13 @@ impl CompilationEngine {
             let end_open = end.find("(");
             let end_end = end.rfind(")");
             if (start_open == Some(0) && start_end == Some(start.len() - 1)) || (end_open == Some(0) && end_end == Some(end.len() - 1)) {
-                index = if start_end.is_some() {start_end.unwrap()+ 1} else if  end_open.is_some() {val} else {0} ;
+                index = if start_end.is_some() { start_end.unwrap() + 1 } else if end_open.is_some() { val } else { 0 };
                 let mut s = expression.get(val..index + 1);
                 while s == Some(" ") && s.is_some() {
                     index = index + 1;
                     s = expression.get(index..index + 1);
                 }
+
                 break;
             }
             if val < index {
@@ -833,15 +889,19 @@ impl CompilationEngine {
                 if checks.clone().count() > 1 {
                     for item in checks.clone() {
                         let exp = item.trim();
-                        if exp.find("(") == Some(0) && exp.rfind(")") == Some(exp.len() - 1) {
-                            self.compile_term(item.get(0..expression.find(op).unwrap()).unwrap().trim().to_string());
 
-                            self.compile_term(expression.get(expression.find(op).unwrap() + 1..expression.len()).unwrap().trim().to_string());
+                        if exp.find("(") == Some(0) && exp.rfind(")") == Some(exp.len() - 1) && exp.matches("(").count() == exp.matches(")").count() {
+                            let start = item.get(0..expression.find(op).unwrap()).unwrap().trim();
+                            let end = expression.get(expression.find(op).unwrap() + 1..expression.len()).unwrap().trim();
+                            if start.matches("(").count() != start.matches(")").count() && end.matches("(").count() != end.matches(")").count() { continue; }
+                            self.compile_term(start.to_string());
+
+                            self.compile_term(end.to_string());
 
                             if item != checks.clone().last().unwrap() {
                                 match op {
-                                    "*" => self.vm_writer.write_call("Math.multiply".to_string(),2),
-                                    "/" => self.vm_writer.write_call("Math.divide".to_string(),2),
+                                    "*" => self.vm_writer.write_call("Math.multiply".to_string(), 2),
+                                    "/" => self.vm_writer.write_call("Math.divide".to_string(), 2),
                                     "+" => self.vm_writer.write_arithmetic(ADD),
                                     "-" => self.vm_writer.write_arithmetic(SUB),
                                     "=" => self.vm_writer.write_arithmetic(EQ),
@@ -857,7 +917,7 @@ impl CompilationEngine {
                                 self.xml_file.close_tag("expression".to_string());
                                 return;
                             }
-                        }
+                        } else { continue; }
                     }
                 }
             }
@@ -867,43 +927,43 @@ impl CompilationEngine {
             self.compile_term(expression.trim().to_string());
         } else if expression.get(0..1).unwrap() == "~" || expression.get(0..1).unwrap() == "-" {
             self.compile_term(expression.trim().to_string());
-
-            // This if is not good enough for (7-a[3]) - Main.double(2)
         } else if expression.trim().get(0..index).unwrap().find("(") == Some(0) && expression.trim().get(0..index).unwrap().find(")") == Some(expression.len() - 1) {
-                self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
-            } else {
-                self.compile_term(expression.get(0..index).unwrap().trim().to_string());
+            self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
+        } else if expression.trim().find("(") == Some(0) && expression.trim().find(")") == Some(expression.len() - 1) {
+            self.compile_term(expression.trim().to_string());
+        } else {
+            self.compile_term(expression.get(0..index).unwrap().trim().to_string());
 
-                let mut symbol = expression.get(index..index + 1).unwrap().trim();
+            let mut symbol = expression.get(index..index + 1).unwrap().trim();
+            if symbol == "" {
+                symbol = expression.get(index + 1..index + 2).unwrap().trim();
                 if symbol == "" {
-                    symbol = expression.get(index + 1..index + 2).unwrap().trim();
-                    if symbol == "" {
-                        symbol = expression.get(index + 2..index + 3).unwrap().trim();
+                    symbol = expression.get(index + 2..index + 3).unwrap().trim();
+                }
+            }
+
+
+            let rest_of_exp = expression.get(index + 2..expression.len()).unwrap().trim();
+            let mut rest_of_exp_has_op = false;
+            for op in OP {
+                tmp = rest_of_exp.trim().find(op);
+                match tmp {
+                    None => {}
+                    Some(_) => {
+                        rest_of_exp_has_op = true;
+                        break;
                     }
                 }
+            }
 
-
-                let rest_of_exp = expression.get(index + 2..expression.len()).unwrap().trim();
-                let mut rest_of_exp_has_op = false;
-                for op in OP {
-                    tmp = rest_of_exp.trim().find(op);
-                    match tmp {
-                        None => {}
-                        Some(_) => {
-                            rest_of_exp_has_op = true;
-                            break;
-                        }
-                    }
-                }
-
-                if rest_of_exp_has_op {
-                    self.compile_term(rest_of_exp.to_string());
-                } else {
-                    self.compile_term(rest_of_exp.trim().to_string());
-                }
+            if rest_of_exp_has_op {
+                self.compile_term(rest_of_exp.to_string());
+            } else {
+                self.compile_term(rest_of_exp.trim().to_string());
+            }
             match symbol {
-                "*" => self.vm_writer.write_call("Math.multiply".to_string(),2),
-                "/" => self.vm_writer.write_call("Math.divide".to_string(),2),
+                "*" => self.vm_writer.write_call("Math.multiply".to_string(), 2),
+                "/" => self.vm_writer.write_call("Math.divide".to_string(), 2),
                 "+" => self.vm_writer.write_arithmetic(ADD),
                 "-" => self.vm_writer.write_arithmetic(SUB),
                 "=" => self.vm_writer.write_arithmetic(EQ),
@@ -914,8 +974,6 @@ impl CompilationEngine {
                 "~" => self.vm_writer.write_arithmetic(NOT),
                 &_ => {}
             };
-
-
         }
         //self.xml_file.close_tag("expression".to_string());
     }
@@ -930,10 +988,13 @@ impl CompilationEngine {
         //self.xml_file.open_tag("term".to_string());
         for keyword in KEYWORD_CONSTANT {
             if term == keyword.to_string() {
-                match keyword{
-                    "true" => {self.vm_writer.write_push(Kind::NONE, "".to_string(), 0);self.vm_writer.write_arithmetic(NOT);}
-                    "null" | "false" => {self.vm_writer.write_push(Kind::NONE, "".to_string(), 0);}
-                    "this" => {self.vm_writer.write_push(Kind::NONE, "pointer".to_string(),0);}
+                match keyword {
+                    "true" => {
+                        self.vm_writer.write_push(Kind::NONE, "".to_string(), 0);
+                        self.vm_writer.write_arithmetic(NOT);
+                    }
+                    "null" | "false" => { self.vm_writer.write_push(Kind::NONE, "".to_string(), 0); }
+                    "this" => { self.vm_writer.write_push(Kind::NONE, "pointer".to_string(), 0); }
                     _ => {}
                 }
                 //self.xml_file.write("keyword".to_string(), term.to_string());
@@ -954,17 +1015,14 @@ impl CompilationEngine {
                 "~" => self.vm_writer.write_arithmetic(NOT),
                 &_ => {}
             }
-
         } else if term.find("(") == Some(0) && term.rfind(")") == Some(term.len() - 1) {
             //self.xml_file.write("symbol".to_string(), "(".to_string());
             if term.find("-") == Some(1) {
-
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
                 self.vm_writer.write_arithmetic(NEG);
             } else if term.find("~") == Some(1) {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
-                self.vm_writer.write_arithmetic(NOT);
-
+                //self.vm_writer.write_arithmetic(NOT);
             } else {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             }
@@ -979,13 +1037,12 @@ impl CompilationEngine {
             self.vm_writer.write_call("String.new".to_string(), 1);
 
             // Push the string contents to the new string object
-            for ch in string_constant.chars(){
+            for ch in string_constant.chars() {
                 // push constant ch            -- for each char in string_constant
                 // call String.appendChar 2    -- for each char in string_constant
 
-                self.vm_writer.write_push(Kind::NONE, "".to_string(),ch as usize);
+                self.vm_writer.write_push(Kind::NONE, "".to_string(), ch as usize);
                 self.vm_writer.write_call("String.appendChar".to_string(), 2);
-
             }
             //self.xml_file.write("stringConstant".to_string(), term.get(term.find("\"").unwrap() + 1..term.rfind("\"").unwrap()).unwrap().to_string());
         } else if term.chars().all(char::is_numeric) {
@@ -1001,7 +1058,7 @@ impl CompilationEngine {
 
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
-            (kind,index) = self.get_kind_index(arr_name.to_string());
+            (kind, index) = self.get_kind_index(arr_name.to_string());
 
             self.compile_expression(arr_entry.to_string());
             self.vm_writer.write_push(kind, "".to_string(), index);// push arr
@@ -1013,7 +1070,7 @@ impl CompilationEngine {
 
 
             //self.xml_file.write("symbol".to_string(), "]".to_string());
-        }else if term.find(".").is_some() {
+        } else if term.find(".").is_some() {
             let class_name = term.get(0..term.find(".").unwrap()).unwrap();
             //self.xml_file.write("identifier".to_string(), term.get(0..term.find(".").unwrap()).unwrap().to_string());
             //self.xml_file.write("symbol".to_string(), ".".to_string());
@@ -1025,33 +1082,31 @@ impl CompilationEngine {
             //self.xml_file.write("symbol".to_string(), "(".to_string());
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
-            (kind,index) = self.get_kind_index(class_name.to_string());
+            (kind, index) = self.get_kind_index(class_name.to_string());
 
             let expressions = term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap();
             self.compile_expression_list(expressions.to_string());
 
-            let expression_count = if expressions.is_empty() {0 } else{expressions.matches(",").count()+1};
-            if subroutine_name == "new"{
+            let expression_count = if expressions.is_empty() { 0 } else { expressions.matches(",").count() + 1 };
+
+            // generates "call SquareGame.run 1" instead of "call square.run 1"
+            if subroutine_name == "new" {
                 // Constructor call
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
             } else if kind != Kind::NONE {
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
-println!("BANANAAAAA!!!!!");
             } else { self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count); }
             //self.xml_file.write("symbol".to_string(), ")".to_string());
-
-
-        }  else {
+        } else {
             // var name or expression
 
             let mut kind = Kind::NONE;
             let mut index = 0;
             (kind, index) = self.get_kind_index(term.to_string());
             if index != usize::MAX {
-                self.vm_writer.write_push(kind, "".to_string(),index);
-            }
-            else{
-                self.vm_writer.write_push(Kind::NONE, "".to_string(),index);
+                self.vm_writer.write_push(kind, "".to_string(), index);
+            } else {
+                self.vm_writer.write_push(Kind::NONE, "".to_string(), index);
             }
 
             //self.xml_file.write("identifier".to_string(), term.to_string());

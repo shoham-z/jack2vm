@@ -20,9 +20,18 @@ fn main() {
 
     //let args: Vec<String> = env::args().collect();
 
+
     let mut file_path;
     //let temp = args[1].to_string();
-    let temp ="/home/shoham/nand2tetris/projects/11/Average".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/Pong/Ball.jack".to_string();
+    let temp ="/home/shoham/nand2tetris/projects/11/Pong/PongGame.jack".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/Seven/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/Average/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/ConvertToBin/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/ComplexArrays/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/Square/".to_string();
+    //let temp ="/home/shoham/nand2tetris/projects/11/Pong/".to_string();
+
     if !temp.contains(".jack"){file_path = search_jack_files(temp.as_str());} else{file_path= Vec::new(); file_path.push(temp.to_string())}
     for file in file_path {
         println!("file : {}",file);

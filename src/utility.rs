@@ -18,7 +18,7 @@ pub const AND: usize = 7;
 pub const OR: usize = 8;
 pub const NOT: usize = 9;
 
-pub static BUILT_IN_CLASSES: [&str;8] = ["Array", "Keyboard", "Math", "Memory", "Output", "Screen", "String", "Sys"];
+pub static BUILT_IN_CLASSES: [&str; 8] = ["Array", "Keyboard", "Math", "Memory", "Output", "Screen", "String", "Sys"];
 pub static MEMORY_AREAS: [&str; 8] = ["static", "this", "that", "local", "argument", "constant", "pointer", "temp"];
 pub static KEYWORD_CONSTANT: [&str; 4] = ["true", "false", "null", "this"];
 pub static CLASS_VAR_TYPES: [&str; 2] = ["static", "field"];

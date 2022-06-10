@@ -238,10 +238,6 @@ impl CompilationEngine {
         let param_list = func_dec.get(content.find("(").unwrap() + 1..content.find(")").unwrap()).unwrap();
         let func_body = content.get(content.find("{").unwrap()..content.rfind("}").unwrap() + 1).unwrap();
 
-        if subroutine_name == "move"{
-            println!("yooo");
-        }
-
         if subroutine_type == "void" {
             // return nothing
         } else if subroutine_type == "constructor" {
@@ -433,7 +429,7 @@ impl CompilationEngine {
                     tmp = lines.next();
                     if tmp.is_some() {
                         current_line = tmp.unwrap().trim();
-                    }
+                    } else { current_line = ""; }
                 }
                 advance = true;
                 tmp = current_line.trim().split_whitespace().nth(0);
@@ -473,7 +469,6 @@ impl CompilationEngine {
                             close_count += while_line.matches("}").count();
 
                             if open_count == close_count && open_count != 0 {
-
                                 advance = false;
                                 break;
                             } else if open_count < close_count {
@@ -481,25 +476,18 @@ impl CompilationEngine {
                             }
                         }
                     }
-                    if while_statement.matches("{").count() == while_statement.matches("}").count() && !while_statement.is_empty() {
+                    if while_statement.matches("{").count() == while_statement.matches("}").count() {
                         while_statement.push_str("}");
                     }
                     if !while_statement.is_empty() {
-                        self.compile_while(while_statement);
+                        self.compile_while(while_statement.to_string());
+                    }
+                    for new_index in index..while_statement.lines().count() {
+                        previous_statements.push(new_index);
                     }
                 }
                 if first_word == "if"
                 {
-
-
-                    // *THE*
-                    // *ISSUE*
-                    // *IS*
-                    // *HERE*
-
-
-
-
                     let mut start_statement = current_line;
                     let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
@@ -513,8 +501,9 @@ impl CompilationEngine {
 
                     let mut if_lines = Vec::new();
                     if_lines.push(start_statement);
-                    if start_statement.trim()!= current_line.trim(){
-                    if_lines.push(current_line);}
+                    if start_statement.trim() != current_line.trim() {
+                        if_lines.push(current_line);
+                    }
                     for line in lines.clone() {
                         if_lines.push(line);
                     }
@@ -524,17 +513,17 @@ impl CompilationEngine {
                     let mut open_count = 0;
                     let mut close_count = 0;
                     let mut if_line = if_lines.get(0).unwrap();
-                    if if_lines.clone().len()==2{
+                    if if_lines.clone().len() == 2 {
                         if_statement.push_str(start_statement);
                     }
-                    for my_index in 1..if_lines.clone().len() - 1 {
+                    for my_index in 1..if_lines.clone().len() {
                         if !if_line.is_empty() {
                             if_statement.push_str(if_line);
                             if_statement.push_str("\n");
                             open_count += if_line.matches("{").count();
                             close_count += if_line.matches("}").count();
-
                             if_line = if_lines.get(my_index).unwrap();
+
                             current_line = lines.next().unwrap();
 
                             if open_count == close_count && open_count != 0 && !if_line.contains("else") {
@@ -543,13 +532,18 @@ impl CompilationEngine {
                             } else if open_count < close_count {
                                 panic!("ERROR IN THE JACK CODE!")
                             }
+                        } else {
+                            if_line = if_lines.get(my_index).unwrap();
                         }
                     }
                     if if_statement.matches("{").count() != if_statement.matches("}").count() && !if_statement.is_empty() {
                         if_statement.push_str("}");
                     }
                     if !if_statement.is_empty() {
-                        self.compile_if(if_statement);
+                        self.compile_if(if_statement.to_string());
+                    }
+                    for new_index in index..if_statement.lines().count() {
+                        previous_statements.push(new_index);
                     }
                 }
                 tmp = current_line.trim().split_whitespace().nth(0);
@@ -577,7 +571,7 @@ impl CompilationEngine {
             }
         }
 
-        self.xml_file.close_tag("statements".to_string());
+        //self.xml_file.close_tag("statements".to_string());
     }
 
     /// Compiles a let statement.
@@ -644,9 +638,8 @@ impl CompilationEngine {
         // if false, go to the else clause
         let elses = content.match_indices("else");
         if elses.clone().count() > 0 {
-
             let mut value = usize::MAX;
-            for myelse in elses{
+            for myelse in elses {
                 let start = content.get(0..myelse.0).unwrap().matches("{").count();
                 let end = content.get(0..myelse.0).unwrap().matches("}").count();
                 if start == end {
@@ -668,7 +661,6 @@ impl CompilationEngine {
                     //self.xml_file.write("symbol".to_string(), "{".to_string());
 
 
-
                     // if body statements
                     self.compile_statements(content.get(content.find("{").unwrap() + 1..value - 1).unwrap().to_string());
 
@@ -681,7 +673,7 @@ impl CompilationEngine {
                     self.vm_writer.write_label(if_false.to_string());
 
                     // else body statements
-                    self.compile_statements(content.get(value + 1..content.rfind("}").unwrap() + 1).unwrap().to_string());
+                    self.compile_statements(content.get(value + 3..content.rfind("}").unwrap()).unwrap().to_string());
 
                     self.vm_writer.write_label(if_end.to_string());
 
@@ -689,8 +681,6 @@ impl CompilationEngine {
                     return;
                 }
             }
-
-
         }
         //self.xml_file.write("keyword".to_string(), "if".to_string());
         //self.xml_file.write("symbol".to_string(), "(".to_string());
@@ -759,7 +749,6 @@ impl CompilationEngine {
 
         //self.xml_file.write("keyword".to_string(), "do".to_string());
 
-
         let do_content = content.get(content.trim().find(" ").unwrap() + 1..content.trim().len() - 1).unwrap();
 
 
@@ -770,6 +759,7 @@ impl CompilationEngine {
             let class_name = do_content.get(0..value).unwrap();
             let expression_list = do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap();
             let mut param_count = 0;
+
             if !expression_list.is_empty() {
                 param_count += expression_list.matches(",").count() + 1;
             }
@@ -808,7 +798,7 @@ impl CompilationEngine {
 
             let mut param_count = 1;
             if !expression_list.is_empty() {
-                param_count += expression_list.matches(",").count();
+                param_count += expression_list.matches(",").count() + 1;
             }
 
             self.compile_expression_list(expression_list.to_string());
@@ -846,8 +836,6 @@ impl CompilationEngine {
     fn compile_expression(&mut self, expression: String) {
 
         //self.xml_file.open_tag("expression".to_string());
-        if expression == "(dx < dy)" {}
-
 
         let mut index = usize::MAX;
         let mut tmp;
@@ -1087,7 +1075,7 @@ impl CompilationEngine {
             let mut index = usize::MAX;
             (kind, index) = self.get_kind_index(class_name.to_string());
             let mut data_type = self.subroutine_symbol_table.type_of(class_name.to_string());
-            if data_type == "".to_string() {data_type = self.class_symbol_table.type_of(class_name.to_string()); }
+            if data_type == "".to_string() { data_type = self.class_symbol_table.type_of(class_name.to_string()); }
 
             let expressions = term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap();
             self.compile_expression_list(expressions.to_string());
@@ -1099,7 +1087,7 @@ impl CompilationEngine {
                 // Constructor call
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
             } else if kind != Kind::NONE {
-                self.vm_writer.write_push(kind, "".to_string(),index);
+                self.vm_writer.write_push(kind, "".to_string(), index);
                 self.vm_writer.write_call(format!("{}.{}", data_type, subroutine_name), expression_count + 1);
             } else {
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
@@ -1127,15 +1115,19 @@ impl CompilationEngine {
         //self.xml_file.open_tag("expressionList".to_string());
 
         if !content.is_empty() {
-            let commas = content.matches(",").count();
-            let mut current = 0;
-            let expressions = content.split(",");
-            for expression in expressions {
-                self.compile_expression(expression.trim().to_string());
-                if current < commas {
-                    current += 1;
+            if content.contains("(") {
+                self.compile_expression(content.trim().to_string());
+            } else {
+                let commas = content.matches(",").count();
+                let mut current = 0;
+                let expressions = content.split(",");
+                for expression in expressions {
+                    self.compile_expression(expression.trim().to_string());
+                    if current < commas {
+                        current += 1;
 
-                    //self.xml_file.write("symbol".to_string(), ",".to_string());
+                        //self.xml_file.write("symbol".to_string(), ",".to_string());
+                    }
                 }
             }
         }

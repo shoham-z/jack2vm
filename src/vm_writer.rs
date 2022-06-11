@@ -103,11 +103,4 @@ impl VMWriter {
     pub fn write_return(&mut self) {
         self.vm_file.write("return\n".as_ref()).expect("write return failed");
     }
-
-    /// Closes the output file.
-    ///
-    /// -- this functionality does not exist in rust - the file closes automatically when it goes out of scope
-    pub fn close(&self) {
-        //self.vm_file.close();
-    }
 }

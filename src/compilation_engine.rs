@@ -206,6 +206,8 @@ impl CompilationEngine {
         //self.xml_file.open_tag("subroutineDec".to_string());
 
         self.subroutine_symbol_table.start_subroutine();
+        self.if_label_index = 0;
+        self.while_label_index = 0;
 
         let func_dec = content.get(0..content.find("{").unwrap()).unwrap();
 
@@ -443,7 +445,12 @@ impl CompilationEngine {
                     let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
                         let line_clone = lines_clone.next().unwrap();
-                        if line_clone.contains("while") && !previous_statements.contains(&index_clone) {
+                        if line_clone.contains("while") && previous_statements.is_empty() {
+                            start_statement = line_clone;
+                            previous_statements.push(index_clone);
+                            break;
+                        }
+                        if line_clone.contains("while") && !previous_statements.contains(&index_clone) && index_clone >= index {
                             start_statement = line_clone;
                             previous_statements.push(index_clone);
                             break;
@@ -482,7 +489,7 @@ impl CompilationEngine {
                     if !while_statement.is_empty() {
                         self.compile_while(while_statement.to_string());
                     }
-                    for new_index in index..while_statement.lines().count() {
+                    for new_index in index..while_statement.lines().count()+index {
                         previous_statements.push(new_index);
                     }
                 }
@@ -492,6 +499,11 @@ impl CompilationEngine {
                     let mut lines_clone = temp.lines();
                     for index_clone in 1..lines_clone.clone().count() {
                         let line_clone = lines_clone.next().unwrap();
+                        if line_clone.contains("if") && previous_statements.len() == 0 {
+                            start_statement = line_clone;
+                            previous_statements.push(index_clone);
+                            break;
+                        }
                         if line_clone.contains("if") && !previous_statements.contains(&index_clone) && index >= index_clone {
                             start_statement = line_clone;
                             previous_statements.push(index_clone);
@@ -542,7 +554,7 @@ impl CompilationEngine {
                     if !if_statement.is_empty() {
                         self.compile_if(if_statement.to_string());
                     }
-                    for new_index in index..if_statement.lines().count() {
+                    for new_index in index..if_statement.lines().count()+index {
                         previous_statements.push(new_index);
                     }
                 }
@@ -673,7 +685,8 @@ impl CompilationEngine {
                     self.vm_writer.write_label(if_false.to_string());
 
                     // else body statements
-                    self.compile_statements(content.get(value + 3..content.rfind("}").unwrap()).unwrap().to_string());
+                    let my_else = content.get(value + 3..content.rfind("}").unwrap()).unwrap();
+                    self.compile_statements(my_else.get(my_else.find("{").unwrap()+1..my_else.len()).unwrap().to_string());
 
                     self.vm_writer.write_label(if_end.to_string());
 
@@ -1010,10 +1023,8 @@ impl CompilationEngine {
             //self.xml_file.write("symbol".to_string(), "(".to_string());
             if term.find("-") == Some(1) {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
-                self.vm_writer.write_arithmetic(NEG);
             } else if term.find("~") == Some(1) {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
-                //self.vm_writer.write_arithmetic(NOT);
             } else {
                 self.compile_expression(term.get(1..term.len() - 1).unwrap().to_string());
             }
@@ -1115,19 +1126,22 @@ impl CompilationEngine {
         //self.xml_file.open_tag("expressionList".to_string());
 
         if !content.is_empty() {
-            if content.contains("(") {
-                self.compile_expression(content.trim().to_string());
-            } else {
-                let commas = content.matches(",").count();
-                let mut current = 0;
-                let expressions = content.split(",");
-                for expression in expressions {
-                    self.compile_expression(expression.trim().to_string());
-                    if current < commas {
-                        current += 1;
+            if content.contains("(") && content.contains(")") && content.contains(",") {
+                if content.find("(") < content.find(",") && content.find(",") < content.find(")") {
+                    self.compile_expression(content.trim().to_string());
+                    return;
+                }
+            }
 
-                        //self.xml_file.write("symbol".to_string(), ",".to_string());
-                    }
+            let commas = content.matches(",").count();
+            let mut current = 0;
+            let expressions = content.split(",");
+            for expression in expressions {
+                self.compile_expression(expression.trim().to_string());
+                if current < commas {
+                    current += 1;
+
+                    //self.xml_file.write("symbol".to_string(), ",".to_string());
                 }
             }
         }

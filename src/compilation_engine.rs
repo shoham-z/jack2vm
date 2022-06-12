@@ -2,6 +2,7 @@ use std::env::var_os;
 use std::fs;
 
 use lazy_static::lazy_static;
+use regex::internal::Input;
 use regex::Regex;
 
 use crate::symbol_table::SymbolTable;
@@ -489,7 +490,7 @@ impl CompilationEngine {
                     if !while_statement.is_empty() {
                         self.compile_while(while_statement.to_string());
                     }
-                    for new_index in index..while_statement.lines().count()+index {
+                    for new_index in index..while_statement.lines().count() + index {
                         previous_statements.push(new_index);
                     }
                 }
@@ -555,7 +556,7 @@ impl CompilationEngine {
                         self.compile_if(if_statement.to_string());
                     }
                     for new_index in 0..if_statement.lines().count() {
-                        previous_statements.push(1+index+new_index);
+                        previous_statements.push(1 + index + new_index);
                     }
                 }
                 tmp = current_line.trim().split_whitespace().nth(0);
@@ -591,7 +592,7 @@ impl CompilationEngine {
         //self.xml_file.open_tag("letStatement".to_string());
 
         //self.xml_file.write("keyword".to_string(), "let".to_string());
-        let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap();
+        let assign_to = content.get(content.find(" ").unwrap()..content.find("=").unwrap()).unwrap().trim();
 
 
         if assign_to.contains("[") {
@@ -624,7 +625,13 @@ impl CompilationEngine {
             // simple variable
             //self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
 
-            self.compile_expression(content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim().to_string());
+            let exp = content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim();
+            if exp.contains(",") || exp.contains("(") && exp.find("(").unwrap() < exp.find(")").unwrap() {
+                self.compile_func_call(exp.to_string());
+
+            } else {
+                self.compile_expression(exp.to_string());
+            }
 
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
@@ -686,7 +693,7 @@ impl CompilationEngine {
 
                     // else body statements
                     let my_else = content.get(value + 3..content.rfind("}").unwrap()).unwrap();
-                    self.compile_statements(my_else.get(my_else.find("{").unwrap()+1..my_else.len()).unwrap().to_string());
+                    self.compile_statements(my_else.get(my_else.find("{").unwrap() + 1..my_else.len()).unwrap().to_string());
 
                     self.vm_writer.write_label(if_end.to_string());
 
@@ -764,63 +771,8 @@ impl CompilationEngine {
 
         let do_content = content.get(content.trim().find(" ").unwrap() + 1..content.trim().len() - 1).unwrap();
 
+        self.compile_func_call(do_content.to_string());
 
-        let dot = do_content.find('.');
-
-        if let Some(value) = dot {
-            // another class's method
-            let class_name = do_content.get(0..value).unwrap();
-            let expression_list = do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap();
-            let mut param_count = 0;
-
-            if !expression_list.is_empty() {
-                param_count += expression_list.matches(",").count() + 1;
-            }
-            let mut kind = Kind::NONE;
-            let mut index = usize::MAX;
-            (kind, index) = self.get_kind_index(class_name.to_string());
-            if kind != Kind::NONE {
-                self.vm_writer.write_push(kind, "".to_string(), index);
-                param_count += 1;
-            }
-
-            self.compile_expression_list(expression_list.to_string());
-
-            if BUILT_IN_CLASSES.contains(&class_name) {
-                self.vm_writer.write_call(do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string(), param_count);
-            } else {
-                let mut call = self.subroutine_symbol_table.type_of(class_name.to_string());
-                if call.is_empty() { call = self.class_symbol_table.type_of(class_name.to_string()); }
-                if !call.is_empty() {
-                    self.vm_writer.write_call((call + do_content.get(do_content.find(".").unwrap()..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
-                } else {
-                    self.vm_writer.write_call((class_name.to_string() + do_content.get(do_content.find(".").unwrap()..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
-                }
-            }
-
-            //self.xml_file.write("identifier".to_string(), do_content.get(0..do_content.find(".").unwrap()).unwrap().to_string());
-            //self.xml_file.write("symbol".to_string(), ".".to_string());
-            //self.xml_file.write("identifier".to_string(), do_content.get(do_content.find(".").unwrap() + 1..do_content.find("(").unwrap()).unwrap().to_string());
-        } else {
-            // this class's method
-
-            // maybe there is no need for this line
-            self.vm_writer.write_push(Kind::NONE, "pointer".to_string(), 0);
-
-            let expression_list = do_content.get(do_content.find("(").unwrap() + 1..do_content.rfind(")").unwrap()).unwrap();
-
-            let mut param_count = 1;
-            if !expression_list.is_empty() {
-                param_count += expression_list.matches(",").count() + 1;
-            }
-
-            self.compile_expression_list(expression_list.to_string());
-
-            self.vm_writer.write_call((self.class_name.to_string() + "." + do_content.get(0..do_content.find("(").unwrap()).unwrap()).to_string(), param_count);
-
-
-            //self.xml_file.write("identifier".to_string(), do_content.get(0..do_content.find("(").unwrap()).unwrap().to_string());
-        }
         self.vm_writer.write_pop(Kind::NONE, "temp".to_string(), 0);
 
         //self.xml_file.write("symbol".to_string(), "(".to_string());
@@ -935,6 +887,8 @@ impl CompilationEngine {
             self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
         } else if expression.trim().find("(") == Some(0) && expression.trim().find(")") == Some(expression.len() - 1) {
             self.compile_term(expression.trim().to_string());
+        } else if expression.trim().find("(").is_some() && expression.trim().find(")").is_some() {
+            self.compile_term(expression);
         } else {
             self.compile_term(expression.get(0..index).unwrap().trim().to_string());
 
@@ -1126,11 +1080,11 @@ impl CompilationEngine {
         //self.xml_file.open_tag("expressionList".to_string());
 
         if !content.is_empty() {
-            if content.contains("(") && content.contains(")") && content.contains(",") {
-                if content.find("(") < content.find(",") && content.find(",") < content.find(")") {
-                    self.compile_expression(content.trim().to_string());
+            if content.contains("(") && content.contains(")") {
+
+                    self.compile_func_call(content.trim().to_string());
                     return;
-                }
+
             }
 
             let commas = content.matches(",").count();
@@ -1159,5 +1113,60 @@ impl CompilationEngine {
             index = self.subroutine_symbol_table.index_of(name.to_string());
         }
         (kind, index)
+    }
+
+    /// Compiles a function call
+    fn compile_func_call(&mut self, call:String) {
+        let dot = call.find('.');
+
+        if let Some(value) = dot {
+            // another class's method
+            let class_name = call.get(0..value).unwrap();
+            let expression_list = call.get(call.find("(").unwrap() + 1..call.rfind(")").unwrap()).unwrap();
+            let mut param_count = 0;
+
+            if !expression_list.is_empty() {
+                param_count += expression_list.matches(",").count() + 1;
+            }
+            let mut kind = Kind::NONE;
+            let mut index = usize::MAX;
+            (kind, index) = self.get_kind_index(class_name.to_string());
+            if kind != Kind::NONE {
+                self.vm_writer.write_push(kind, "".to_string(), index);
+                param_count += 1;
+            }
+
+            self.compile_expression_list(expression_list.to_string());
+
+            if BUILT_IN_CLASSES.contains(&class_name) {
+                self.vm_writer.write_call(call.get(0..call.find("(").unwrap()).unwrap().to_string(), param_count);
+            } else {
+                let mut call_1 = self.subroutine_symbol_table.type_of(class_name.to_string());
+                if call_1.is_empty() { call_1 = self.class_symbol_table.type_of(class_name.to_string()); }
+                if !call_1.is_empty() {
+                    self.vm_writer.write_call((call_1 + call.get(call.find(".").unwrap()..call.find("(").unwrap()).unwrap()).to_string(), param_count);
+                } else {
+                    self.vm_writer.write_call((class_name.to_string() + call.get(call.find(".").unwrap()..call.find("(").unwrap()).unwrap()).to_string(), param_count);
+                }
+            }
+
+        } else {
+            // this class's method
+
+            self.vm_writer.write_push(Kind::NONE, "pointer".to_string(), 0);
+
+            let expression_list = call.get(call.find("(").unwrap() + 1..call.rfind(")").unwrap()).unwrap();
+
+            let mut param_count = 1;
+            if !expression_list.is_empty() {
+                param_count += expression_list.matches(",").count() + 1;
+            }
+
+            self.compile_expression_list(expression_list.to_string());
+
+            self.vm_writer.write_call((self.class_name.to_string() + "." + call.get(0..call.find("(").unwrap()).unwrap()).to_string(), param_count);
+
+
+        }
     }
 }

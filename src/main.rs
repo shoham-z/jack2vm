@@ -23,7 +23,7 @@ fn main() {
 
     let mut file_path:Vec<String> = Vec::new();
     //let temp = args[1].to_string();
-    let compile_all = true;
+    let compile_all = false;
 
     if compile_all {
         file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/Seven/"));
@@ -40,7 +40,7 @@ fn main() {
             compilation_engine.compile();
         }
     } else {
-        let temp = "/home/shoham/nand2tetris/projects/11/Square/SquareGame.jack".to_string();
+        let temp = "/home/shoham/nand2tetris/projects/09/TicTacToe".to_string();
 
         if !temp.contains(".jack") { file_path = search_jack_files(temp.as_str()); } else {
             file_path = Vec::new();

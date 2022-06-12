@@ -40,7 +40,7 @@ fn main() {
             compilation_engine.compile();
         }
     } else {
-        let temp = "/home/shoham/nand2tetris/projects/11/Pong/Ball.jack".to_string();
+        let temp = "/home/shoham/nand2tetris/projects/11/Square/SquareGame.jack".to_string();
 
         if !temp.contains(".jack") { file_path = search_jack_files(temp.as_str()); } else {
             file_path = Vec::new();

@@ -554,8 +554,8 @@ impl CompilationEngine {
                     if !if_statement.is_empty() {
                         self.compile_if(if_statement.to_string());
                     }
-                    for new_index in index..if_statement.lines().count()+index {
-                        previous_statements.push(new_index);
+                    for new_index in 0..if_statement.lines().count() {
+                        previous_statements.push(1+index+new_index);
                     }
                 }
                 tmp = current_line.trim().split_whitespace().nth(0);

@@ -199,7 +199,7 @@ impl CompilationEngine {
             }
         }
 
-        self.xml_file.close_tag("classVarDec".to_string());
+        //self.xml_file.close_tag("classVarDec".to_string());
     }
 
     /// Compiles a complete method, function or constructor.
@@ -626,8 +626,14 @@ impl CompilationEngine {
             //self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
 
             let exp = content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim();
-            if exp.contains(",") || exp.contains("(") && exp.find("(").unwrap() < exp.find(")").unwrap() {
-                self.compile_func_call(exp.to_string());
+            if exp.contains("(") && exp.find("(").unwrap() < exp.find(")").unwrap() && exp.matches("(").count()==1 && !content.contains(" (") {
+                if exp.contains(","){
+                    if exp.find("(").unwrap() < exp.find(",").unwrap() && exp.find(",").unwrap() < exp.find(")").unwrap() {
+                        self.compile_func_call(exp.to_string());
+                    }
+                } else {
+                    self.compile_func_call(exp.to_string());
+                }
 
             } else {
                 self.compile_expression(exp.to_string());
@@ -887,7 +893,7 @@ impl CompilationEngine {
             self.compile_term(expression.get(expression.find("(").unwrap()..expression.rfind(")").unwrap() + 1).unwrap().trim().to_string());
         } else if expression.trim().find("(") == Some(0) && expression.trim().find(")") == Some(expression.len() - 1) {
             self.compile_term(expression.trim().to_string());
-        } else if expression.trim().find("(").is_some() && expression.trim().find(")").is_some() {
+        } else if expression.trim().find("(").is_some() && expression.trim().find(")").is_some() && index == usize::MAX {
             self.compile_term(expression);
         } else {
             self.compile_term(expression.get(0..index).unwrap().trim().to_string());
@@ -1080,10 +1086,17 @@ impl CompilationEngine {
         //self.xml_file.open_tag("expressionList".to_string());
 
         if !content.is_empty() {
-            if content.contains("(") && content.contains(")") {
-
+            if content.contains("(") && content.contains(")") && content.matches("(").count() == 1 && !content.contains(" (") && content.find("(").unwrap() < content.find(")").unwrap() {
+                if content.contains(","){
+                    if content.find("(").unwrap() < content.find(",").unwrap() && content.find(",").unwrap() < content.find(")").unwrap() {
+                        self.compile_func_call(content.to_string());
+                        return;
+                    }
+                } else {
                     self.compile_func_call(content.trim().to_string());
                     return;
+                }
+
 
             }
 

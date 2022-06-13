@@ -31,6 +31,7 @@ fn main() {
         file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/ConvertToBin/"));
         file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/ComplexArrays/"));
         file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/Square/"));
+        file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/Circle/"));
         file_path.append(&mut search_jack_files("/home/shoham/nand2tetris/projects/11/Pong/"));
 
         for file in file_path {
@@ -40,7 +41,7 @@ fn main() {
             compilation_engine.compile();
         }
     } else {
-        let temp = "/home/shoham/nand2tetris/projects/09/TicTacToe".to_string();
+        let temp ="/home/shoham/nand2tetris/projects/11/Circle/".to_string();
 
         if !temp.contains(".jack") { file_path = search_jack_files(temp.as_str()); } else {
             file_path = Vec::new();

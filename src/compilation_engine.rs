@@ -1,8 +1,5 @@
-use std::env::var_os;
 use std::fs;
-
 use lazy_static::lazy_static;
-use regex::internal::Input;
 use regex::Regex;
 
 use crate::symbol_table::SymbolTable;
@@ -14,8 +11,6 @@ lazy_static! {
     static ref IF_LABEL_INDEX:usize = 0;
     static ref WHILE_LABEL_INDEX:usize = 0;
 }
-
-
 
 pub struct CompilationEngine {
     class_name: String,
@@ -625,8 +620,17 @@ impl CompilationEngine {
             // simple variable
             //self.xml_file.write("identifier".to_string(), assign_to.trim().to_string());
 
+            // negative * tmp.intValue()
+            // translates to
+            // call negative * tmp.intValue 0
+
             let exp = content.get(content.find("=").unwrap() + 1..content.find(";").unwrap()).unwrap().trim();
-            if exp.contains("(") && exp.find("(").unwrap() < exp.find(")").unwrap() && exp.matches("(").count()==1 && !content.contains(" (") {
+
+            self.compile_expression(exp.to_string());
+
+
+
+            /*if exp.contains("(") && exp.find("(").unwrap() < exp.find(")").unwrap() && exp.matches("(").count()==1 && !content.contains(" (") {
                 if exp.contains(","){
                     if exp.find("(").unwrap() < exp.find(",").unwrap() && exp.find(",").unwrap() < exp.find(")").unwrap() {
                         self.compile_func_call(exp.to_string());
@@ -637,7 +641,7 @@ impl CompilationEngine {
 
             } else {
                 self.compile_expression(exp.to_string());
-            }
+            }*/
 
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;
@@ -909,6 +913,8 @@ impl CompilationEngine {
                     }
                 }
             }
+        } else if expression.find("\"") == Some(0) && expression.rfind("\"") == Some(expression.len() - 1) {
+            self.compile_term(expression);
         } else if index == usize::MAX {
             self.compile_term(expression.trim().to_string());
         } else if index == 0 {
@@ -1075,18 +1081,23 @@ impl CompilationEngine {
             if data_type == "".to_string() { data_type = self.class_symbol_table.type_of(class_name.to_string()); }
 
             let expressions = term.get(term.find("(").unwrap() + 1..term.rfind(")").unwrap()).unwrap();
-            self.compile_expression_list(expressions.to_string());
 
             let expression_count = if expressions.is_empty() { 0 } else { expressions.matches(",").count() + 1 };
 
             // generates "call SquareGame.run 1" instead of "call square.run 1"
             if subroutine_name == "new" {
                 // Constructor call
+                self.compile_expression_list(expressions.to_string());
+
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
             } else if kind != Kind::NONE {
                 self.vm_writer.write_push(kind, "".to_string(), index);
+                self.compile_expression_list(expressions.to_string());
+
                 self.vm_writer.write_call(format!("{}.{}", data_type, subroutine_name), expression_count + 1);
             } else {
+                self.compile_expression_list(expressions.to_string());
+
                 self.vm_writer.write_call(format!("{}.{}", class_name, subroutine_name), expression_count);
             }
             //self.xml_file.write("symbol".to_string(), ")".to_string());
@@ -1125,6 +1136,10 @@ impl CompilationEngine {
 
 
             }
+            if content.find("\"") == Some(0) && content.rfind("\"") == Some(content.len() - 1) {
+                self.compile_expression(content);
+                return;
+            }
 
             let commas = content.matches(",").count();
             let mut current = 0;
@@ -1144,7 +1159,7 @@ impl CompilationEngine {
     /// Gets the Kind and type of a variable if exists
     fn get_kind_index(&self, name: String) -> (Kind, usize) {
         let mut kind = self.subroutine_symbol_table.kind_of(name.to_string());
-        let mut index;
+        let index;
         if kind == Kind::NONE {
             kind = self.class_symbol_table.kind_of(name.to_string());
             index = self.class_symbol_table.index_of(name.to_string());
@@ -1164,8 +1179,18 @@ impl CompilationEngine {
             let expression_list = call.get(call.find("(").unwrap() + 1..call.rfind(")").unwrap()).unwrap();
             let mut param_count = 0;
 
+
             if !expression_list.is_empty() {
                 param_count += expression_list.matches(",").count() + 1;
+            }
+            for comma in expression_list.match_indices(','){
+                let mut temp = expression_list.match_indices("\"");
+                for _index in 0..(expression_list.match_indices("\"").count()/2) {
+                    if temp.nth(0).unwrap().0 < comma.0 && comma.0 < temp.nth(0).unwrap().0 {
+                        param_count-=1;
+                    }
+                }
+
             }
             let mut kind = Kind::NONE;
             let mut index = usize::MAX;

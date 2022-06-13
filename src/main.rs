@@ -36,12 +36,12 @@ fn main() {
 
         for file in file_path {
             println!("file : {}", file);
-            tokenizer(file.to_string());
+            //tokenizer(file.to_string());
             let mut compilation_engine: CompilationEngine = CompilationEngine::new(&file);
             compilation_engine.compile();
         }
     } else {
-        let temp ="/home/shoham/nand2tetris/projects/11/Circle/".to_string();
+        let temp ="/home/shoham/nand2tetris/projects/11/Solver/".to_string();
 
         if !temp.contains(".jack") { file_path = search_jack_files(temp.as_str()); } else {
             file_path = Vec::new();

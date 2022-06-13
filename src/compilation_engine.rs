@@ -19,7 +19,7 @@ lazy_static! {
 
 pub struct CompilationEngine {
     class_name: String,
-    xml_file: XmlWriter,
+    //xml_file: XmlWriter,
     vm_writer: VMWriter,
     input_file: String,
     class_symbol_table: SymbolTable,
@@ -51,7 +51,7 @@ impl CompilationEngine {
 
         CompilationEngine {
             class_name: code.split_whitespace().nth(1).unwrap().to_string(),
-            xml_file: XmlWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
+            //xml_file: XmlWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + "My.jack")),
             vm_writer: VMWriter::new(&(path.to_owned().split(".jack").collect::<Vec<_>>()[0].to_owned() + ".jack")),
             input_file: code,
             class_symbol_table: SymbolTable::new(),
@@ -876,7 +876,7 @@ impl CompilationEngine {
                                 };
                                 break;
                             } else {
-                                self.xml_file.close_tag("expression".to_string());
+                                //self.xml_file.close_tag("expression".to_string());
                                 return;
                             }
                         } else { continue; }
@@ -1048,7 +1048,7 @@ impl CompilationEngine {
             let mut data_type = self.subroutine_symbol_table.type_of(class_name.to_string());
             if data_type == "".to_string() { data_type = self.class_symbol_table.type_of(class_name.to_string()); }
 
-            let expressions = term.get(term.find("(").unwrap() + 1..term.find(")").unwrap()).unwrap();
+            let expressions = term.get(term.find("(").unwrap() + 1..term.rfind(")").unwrap()).unwrap();
             self.compile_expression_list(expressions.to_string());
 
             let expression_count = if expressions.is_empty() { 0 } else { expressions.matches(",").count() + 1 };

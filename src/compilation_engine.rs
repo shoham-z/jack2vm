@@ -858,7 +858,33 @@ impl CompilationEngine {
                             if start.matches("(").count() != start.matches(")").count() && end.matches("(").count() != end.matches(")").count() { continue; }
                             self.compile_term(start.to_string());
 
-                            self.compile_term(end.to_string());
+                            let mut rest_of_exp_has_op = false;
+                            for op in OP {
+                                if op != "=" && op != "~" && op != "-" {
+                                    tmp = end.trim().find(op);
+                                    match tmp {
+                                        None => {}
+                                        Some(_) => {
+                                            rest_of_exp_has_op = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if rest_of_exp_has_op && !(end.find("(") == Some(0) && (end.find("~") == Some(1) || end.find("-") == Some(1)) && end.rfind(")") == Some(end.len()-1)) {
+                                self.compile_expression(end.to_string());
+                            } else if !rest_of_exp_has_op && end.find("(") == Some(0) && (end.find("~") == Some(1) || end.find("-") == Some(1)) && end.rfind(")") == Some(end.len()-1){
+                                self.compile_term(end.to_string());
+                            } else {
+                                if rest_of_exp_has_op {
+                                    self.compile_expression(end.to_string());
+                                } else {
+                                    self.compile_term(end.trim().to_string());
+                                }
+                            }
+
+
 
                             if item != checks.clone().last().unwrap() {
                                 match op {
@@ -921,7 +947,7 @@ impl CompilationEngine {
             }
 
             if rest_of_exp_has_op {
-                self.compile_term(rest_of_exp.to_string());
+                self.compile_expression(rest_of_exp.to_string());
             } else {
                 self.compile_term(rest_of_exp.trim().to_string());
             }

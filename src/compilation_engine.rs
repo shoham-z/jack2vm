@@ -928,7 +928,24 @@ impl CompilationEngine {
         } else if expression.trim().find("(").is_some() && expression.trim().find(")").is_some() && index == usize::MAX {
             self.compile_term(expression);
         } else {
-            self.compile_term(expression.get(0..index).unwrap().trim().to_string());
+            let start_of_exp = expression.get(0..index).unwrap().trim();
+            let mut start_of_exp_has_op = false;
+            for op in OP {
+                tmp = start_of_exp.trim().find(op);
+                match tmp {
+                    None => {}
+                    Some(_) => {
+                        start_of_exp_has_op = true;
+                        break;
+                    }
+                }
+            }
+            if start_of_exp_has_op{
+                self.compile_expression(start_of_exp.to_string());
+
+            } else {
+                self.compile_term(start_of_exp.to_string());
+            }
 
             let mut symbol = expression.get(index..index + 1).unwrap().trim();
             if symbol == "" {
